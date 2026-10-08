@@ -1,0 +1,132 @@
+.layout {
+  display: flex;
+  min-height: 100vh;
+  background-color: #0d1117;
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.sidebar {
+  width: 280px;
+  background-color: #161b22;
+  border-right: 1px solid #30363d;
+  padding: 30px 20px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.sidebarTitle {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #30363d;
+}
+
+.sidebarCategory {
+  margin-bottom: 20px;
+}
+
+.sidebarCategoryTitle {
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  color: #8b949e;
+  margin-bottom: 10px;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.sidebarLink {
+  display: block;
+  color: #c9d1d9;
+  text-decoration: none;
+  font-size: 0.95rem;
+  padding: 6px 10px;
+  border-radius: 6px;
+  margin-bottom: 4px;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.sidebarLink:hover {
+  background-color: #21262d;
+  color: #ffffff;
+}
+
+.mainContent {
+  flex: 1;
+  padding: 40px 60px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.header {
+  margin-bottom: 50px;
+  border-bottom: 1px solid #30363d;
+  padding-bottom: 20px;
+}
+
+.title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 10px;
+}
+
+.subtitle {
+  font-size: 1.1rem;
+  color: #8b949e;
+}
+
+.loading {
+  text-align: center;
+  color: #8b949e;
+  font-size: 1.2rem;
+  margin-top: 50px;
+}
+
+.categorySection {
+  margin-bottom: 60px;
+}
+
+.categoryTitle {
+  font-size: 1.6rem;
+  color: #ffffff;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #21262d;
+}
+
+.docCard {
+  margin-bottom: 30px;
+  scroll-margin-top: 40px;
+}
+
+.docTitle {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 10px;
+}
+
+.docContent {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #c9d1d9;
+  white-space: pre-wrap;
+}
+
+.docContent code {
+  background-color: #21262d;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 0.9em;
+}
+
+.docContent strong {
+  color: #e6edf3;
+  font-weight: 600;
+}
