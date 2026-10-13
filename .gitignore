@@ -49,3 +49,4 @@ __pycache__/
 # local db / uploads
 backend/*.db
 backend/uploads/
+/backend/novita.env

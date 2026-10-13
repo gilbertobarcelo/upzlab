@@ -112,7 +112,7 @@ export default function PostarPage() {
         productId: appId,
       }, imagem);
       setSucesso(true);
-      setTimeout(() => router.push("/"), 2000);
+      setTimeout(() => router.push("/comunidade"), 2000);
     } finally {
       setEnviando(false);
     }

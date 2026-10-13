@@ -40,6 +40,7 @@ class BetaFeedback(Base):
     # Imagens: lista de paths separados por vírgula
     images = Column(Text)  # JSON array de paths
     status = Column(String(20), default="open")  # open | reviewed | approved | closed
+    is_seed = Column(Boolean, default=False, nullable=False, index=True)
     award_points = Column(Integer, default=0)
     badge_type = Column(String(50), nullable=True)  # visao_de_aguia | code_expert | shield_hunter | bug_hunter
     admin_comment = Column(Text, nullable=True)
@@ -124,6 +125,7 @@ class BetaFeedbackComment(Base):
     
     body = Column(Text, nullable=False)
     is_admin_reply = Column(Boolean, default=False)
+    is_seed = Column(Boolean, default=False, nullable=False, index=True)
     likes = Column(Integer, default=0)
     
     created_at = Column(DateTime, server_default=func.now())
@@ -143,4 +145,3 @@ class BetaFeedbackComment(Base):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
-

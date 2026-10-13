@@ -10,13 +10,16 @@ from upzlabrouter.core.exceptions import RouterModelNotFound, RouterProviderErro
 from upzlabrouter.providers.base import ChatRequest, ChatResponse
 from upzlabrouter.providers.cohere import CohereProvider
 from upzlabrouter.providers.apodex import ApodexProvider
+from upzlabrouter.providers.novita import NovitaProvider
 from upzlabrouter.services.quota import can_use, increment
 from upzlabrouter.models.router_models import RouterUsageLog
+from upzlabrouter.services.novita_catalog import fetch_free_novita_model
 
 # Registro de provedores disponíveis
 _PROVIDERS = {
     "cohere": CohereProvider(),
     "apodex": ApodexProvider(),
+    "novita": NovitaProvider(),
 }
 
 
@@ -33,6 +36,21 @@ def _resolve_model(model_alias: str) -> list[dict]:
                     specs.append({**spec, "alias": alias})
                     break
         return specs
+
+    if model_alias.startswith("novita/"):
+        model_id = model_alias.removeprefix("novita/")
+        model = fetch_free_novita_model(model_id)
+        if model is None:
+            raise RouterModelNotFound(model_alias)
+        return [{
+            "provider": "novita",
+            "model": model_id,
+            "tier": "free",
+            "pts_per_1k": 0,
+            "description": model["description"],
+            "context_window": model["context_window"],
+            "alias": model_alias,
+        }]
 
     spec = MODEL_CATALOG.get(model_alias)
     if not spec:

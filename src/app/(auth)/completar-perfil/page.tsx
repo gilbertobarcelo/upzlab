@@ -1,11 +1,15 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useComunidade } from "../../ComunidadeContext";
+import { requestedAuthDestination } from "../../../lib/auth-flow";
 import { auth } from "../../../lib/firebase";
 import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from "firebase/auth";
 
 export default function CompletarPerfilPage() {
+  const router = useRouter();
   const { isLoggedIn, login } = useComunidade();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -110,9 +114,6 @@ export default function CompletarPerfilPage() {
       }
       
       setAuthStep("success");
-      setTimeout(() => {
-        window.location.href = "/";
-      }, 1500);
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err.message || "Código inválido ou expirado");
@@ -130,8 +131,20 @@ export default function CompletarPerfilPage() {
         </div>
         <h1 className="text-2xl font-black text-white text-center mb-4">Telefone Verificado!</h1>
         <p className="text-slate-400 text-sm text-center leading-relaxed">
-          Sua conta está totalmente configurada. Você será redirecionado em instantes...
+          Sua conta está pronta. Convide seus testers agora ou continue para a comunidade.
         </p>
+        <div className="mt-7 flex w-full flex-col gap-3">
+          <Link href="/convites?onboarding=1" className="w-full rounded-xl bg-white px-5 py-3 text-center text-sm font-bold text-[#111315] transition hover:bg-white/90">
+            Convidar meus testers
+          </Link>
+          <button
+            type="button"
+            onClick={() => router.replace(requestedAuthDestination(window.location.search))}
+            className="w-full rounded-xl border border-white/10 px-5 py-3 text-sm font-semibold text-slate-300 transition hover:bg-white/[0.05] hover:text-white"
+          >
+            Ir para a comunidade
+          </button>
+        </div>
       </div>
     );
   }

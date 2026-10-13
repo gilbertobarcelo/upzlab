@@ -8,8 +8,27 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8001';
 // Next.js 16: a convenção `middleware` foi renomeada para `proxy` (mesma
 // funcionalidade, runtime nodejs). Ver node_modules/next/dist/docs/.../proxy.md
 export async function proxy(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
   // Ler o token do cookie da comunidade
   const token = request.cookies.get('upzlab_dev_jwt')?.value;
+
+  // Keep public entry points reachable even when the API is unavailable.
+  // Login must remain accessible with an existing cookie too, so stale or
+  // previously issued sessions cannot bounce the user back to the landing page.
+  const isPublicSdkDocumentation =
+    pathname === "/sdk" ||
+    (pathname.startsWith("/sdk/") && !pathname.startsWith("/sdk/monitoramento"));
+  const isPublicRouterLanding = pathname === "/upzlabrouter";
+  if (
+    pathname === "/" ||
+    pathname === "/cadastro" ||
+    pathname === "/login" ||
+    isPublicSdkDocumentation ||
+    isPublicRouterLanding
+  ) {
+    return NextResponse.next();
+  }
 
   // Permite acesso irrestrito às rotas internas da API Next, assets estáticos (imagens, CSS, etc.)
   if (
@@ -43,7 +62,15 @@ export async function proxy(request: NextRequest) {
       // Se o Python mandar um redirecionamento na lata, nós obedecemos cegamente.
       // A lógica de negócio (ex: forçar a preencher o perfil) fica 100% lá.
       if (data.redirect_to) {
-        return NextResponse.redirect(new URL(data.redirect_to, request.url));
+        const destination = new URL(data.redirect_to, request.url);
+        if (
+          pathname.startsWith("/upzlabrouter/") &&
+          destination.pathname === "/login" &&
+          !destination.searchParams.has("next")
+        ) {
+          destination.searchParams.set("next", pathname);
+        }
+        return NextResponse.redirect(destination);
       }
     }
   } catch (error) {

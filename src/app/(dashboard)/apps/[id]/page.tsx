@@ -112,7 +112,7 @@ export default function AppDetailsPage() {
       const json = await res.json();
       if (json.success) {
         setApp({...app, is_tester: true});
-        setModalMessage("Você agora é um testador deste aplicativo!");
+        setModalMessage(json.email_sent ? "Você agora é um testador deste aplicativo! Enviamos o grupo de testers e o link de download para o seu e-mail." : "Você agora é um testador deste aplicativo!");
       } else {
         setModalMessage(json.message);
       }
@@ -165,7 +165,7 @@ export default function AppDetailsPage() {
             <Link href={`/studio/${params.id}`}>
               <button className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 rounded-lg text-white font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-emerald-900/20 flex items-center gap-2">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                App Studio
+                Lab Studio
               </button>
             </Link>
             <Link href={`/apps/${params.id}/editar`}>

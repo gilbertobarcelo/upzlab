@@ -3,12 +3,16 @@ UpzLabRouter — Configuração central.
 Single source of truth para aliases de modelos, provedores e limites.
 """
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+load_dotenv(BACKEND_DIR / "novita.env")
 
 # ── Prefixo das chaves UpzLab ──────────────────────────────────────────────────
-KEY_PREFIX = "upzlk_"
+KEY_PREFIX = "Lab_"
+LEGACY_KEY_PREFIXES = ("upzlk_",)
+KEY_PREFIXES = (KEY_PREFIX, *LEGACY_KEY_PREFIXES)
 
 # ── Modelos expostos no MVP (Cohere + Apodex) ─────────────────────────────────
 #  alias UpzLabRouter → (provider_id, model_id_no_provedor, custo_pts_por_1k_tokens)
@@ -41,16 +45,18 @@ MODEL_CATALOG: dict[str, dict] = {
     },
 }
 
-# ── Chaves dos provedores (lidas do .env) ──────────────────────────────────────
+# ── Chaves dos provedores ──────────────────────────────────────────────────────
 PROVIDER_KEYS: dict[str, str] = {
     "cohere": os.getenv("COHERE_API_KEY", ""),
     "apodex": os.getenv("APODEX_API_KEY", ""),
+    "novita": os.getenv("NOVITA_API_KEY", ""),
 }
 
 # ── Endpoints dos provedores ───────────────────────────────────────────────────
 PROVIDER_ENDPOINTS: dict[str, str] = {
     "cohere": "https://api.cohere.com/v2/chat",
     "apodex": "https://api.apodex.com/v1/chat/completions",
+    "novita": "https://api.novita.ai/openai",
 }
 
 # ── Limites de rate por provedor (estimativa — ajustar conforme docs) ──────────

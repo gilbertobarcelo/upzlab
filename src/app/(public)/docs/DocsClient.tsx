@@ -60,7 +60,7 @@ export default function DocsClient({ activeSlug }: DocsClientProps) {
             <h2 className={styles.sidebarTitle}>UpzLab Docs</h2>
         </Link>
         
-        {!docs && <div style={{color: '#8b949e'}}>Carregando menu...</div>}
+        {!docs && <div className={styles.loading}>Carregando menu...</div>}
         
         {docs && Object.entries(docs).map(([category, articles]) => (
           <div key={`nav-${category}`} className={styles.sidebarCategory}>
@@ -69,11 +69,10 @@ export default function DocsClient({ activeSlug }: DocsClientProps) {
               const slug = slugify(article.title);
               const isActive = slug === activeSlug;
               return (
-                <Link 
-                  key={`link-${article.id}`} 
-                  href={`/docs/${slug}`} 
-                  className={styles.sidebarLink}
-                  style={isActive ? { backgroundColor: '#21262d', color: '#ffffff' } : {}}
+                <Link
+                  key={`link-${article.id}`}
+                  href={`/docs/${slug}`}
+                  className={`${styles.sidebarLink} ${isActive ? styles.sidebarLinkActive : ''}`}
                 >
                   {article.title}
                 </Link>
@@ -86,7 +85,7 @@ export default function DocsClient({ activeSlug }: DocsClientProps) {
       {/* MAIN CONTENT */}
       <main className={styles.mainContent}>
         
-        {error && <div style={{color: 'red', textAlign: 'center'}}>{error}</div>}
+        {error && <div style={{color: '#f87171', textAlign: 'center'}}>{error}</div>}
 
         {!docs && !error && (
           <div className={styles.loading}>Buscando documentação oficial...</div>

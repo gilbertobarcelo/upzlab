@@ -1,11 +1,40 @@
-from fastapi import APIRouter, Depends, Form, UploadFile, File, Request, Query, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, UploadFile, File, Request, Query, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from database.database import get_db
 from app.models.beta_product_models import BetaProduct, CampaignTemplate
 from app.models.dev_tester_models import DevProfile, UpzPointsLedger
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/campaigns", tags=["Campanhas"])
+
+
+def _is_http_url(value) -> bool:
+    return isinstance(value, str) and value.strip().lower().startswith(("http://", "https://"))
+
+
+def _send_tester_welcome_email(recipient: str, name: str, app_name: str, group_url, download_url) -> None:
+    """Envia ao novo testador o grupo e o link de download do app (falhas só vão para o log)."""
+    import logging
+    from app.services.mail_service import render_email, send_email
+
+    first = (name or "dev").split(" ")[0]
+    steps = []
+    buttons = []
+    if _is_http_url(group_url):
+        steps.append("1. Entre no grupo de testers do app (necessário para liberar o download).")
+        buttons.append(("Entrar no grupo de testers", group_url.strip()))
+    if _is_http_url(download_url):
+        steps.append(f"{len(steps) + 1}. Baixe e instale o app depois de entrar no grupo.")
+        buttons.append(("Baixar o app", download_url.strip()))
+    intro = f"Olá, {first}! Você agora é testador do app {app_name} na comunidade UpzLab."
+    text = intro + "\n\n" + "\n".join(steps) + "\n\nDepois de testar, reporte bugs e sugestões no UpzLab para ganhar UpzPoints."
+    plain = text + "".join(f"\n\n{label}: {url}" for label, url in buttons)
+    try:
+        send_email(recipient, f"Você entrou no teste de {app_name} - UpzLab", plain,
+                   render_email(f"Você entrou no teste de {app_name}", text, extra_buttons=buttons))
+    except Exception:
+        logging.getLogger(__name__).exception("Falha ao enviar e-mail de testador para %s", recipient)
 
 # Upload de imagens de app: allowlist + limite de 5 MB.
 ALLOWED_IMAGE_EXTS = ("jpg", "jpeg", "png", "webp", "gif")
@@ -100,6 +129,14 @@ async def create_new_app(
         raise HTTPException(status_code=404, detail="Perfil de dev não encontrado. Complete seu cadastro.")
 
     import re
+    package_id = packageId.strip()
+    if len(package_id) > 120:
+        raise HTTPException(status_code=422, detail="Package ID Android não pode exceder 120 caracteres.")
+    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+", package_id):
+        raise HTTPException(status_code=422, detail="Package ID Android inválido.")
+    if db.query(BetaProduct).filter(BetaProduct.package_id == package_id).first():
+        raise HTTPException(status_code=409, detail="Este Package ID já está cadastrado.")
+
     # Limpa o nome do app para usar como nome de pasta (remove espaços e caracteres especiais)
     safe_app_name = re.sub(r'[^a-zA-Z0-9_]', '_', nomeApp.lower())
     app_folder = f"uploads/apps/imagens/{safe_app_name}"
@@ -127,6 +164,7 @@ async def create_new_app(
         
     novo_app = BetaProduct(
         name=nomeApp,
+        package_id=package_id,
         slug=app_slug,
         description=descricaoApp,
         version=versao,
@@ -143,7 +181,11 @@ async def create_new_app(
     )
     
     db.add(novo_app)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Package ID ou nome do app já cadastrado.") from exc
     db.refresh(novo_app)
     
     # Recompensa o Dev com pontos por publicar o app (via gamification_service — ledger + nível)
@@ -638,7 +680,7 @@ async def get_boost_status(slug: str, db: Session = Depends(get_db)):
 
 
 @router.post("/app/{slug}/follow")
-async def register_tester(slug: str, dev_id: int = Form(...), db: Session = Depends(get_db)):
+async def register_tester(slug: str, background_tasks: BackgroundTasks, dev_id: int = Form(...), db: Session = Depends(get_db)):
     from app.models.beta_product_models import ProjectFollower
     camp = None
     if slug.isdigit():
@@ -674,7 +716,23 @@ async def register_tester(slug: str, dev_id: int = Form(...), db: Session = Depe
         else:
             add_points_and_level_up(db, dev_profile, UpzPointsReward.TESTER_JOIN_APP, reason)
 
-    return {"success": True, "message": "Cadastro como testador realizado com sucesso!", "points_awarded": UpzPointsReward.APP_FOUNDER_DOWNLOAD if getattr(camp, "is_founder_app", False) else UpzPointsReward.TESTER_JOIN_APP}
+    email_queued = False
+    if dev_profile and (_is_http_url(camp.google_group_url) or _is_http_url(camp.download_url)):
+        from app.models.user_models import AppUser
+        app_user = db.query(AppUser).filter(AppUser.id == dev_profile.user_id).first()
+        if app_user and app_user.email and app_user.email_verified and not app_user.is_seed:
+            background_tasks.add_task(
+                _send_tester_welcome_email, app_user.email, dev_profile.name or app_user.name,
+                camp.name, camp.google_group_url, camp.download_url,
+            )
+            email_queued = True
+
+    return {
+        "success": True,
+        "message": "Cadastro como testador realizado com sucesso!",
+        "email_sent": email_queued,
+        "points_awarded": UpzPointsReward.APP_FOUNDER_DOWNLOAD if getattr(camp, "is_founder_app", False) else UpzPointsReward.TESTER_JOIN_APP,
+    }
 
 @router.post("/app/{slug}/unfollow")
 async def unregister_tester(slug: str, dev_id: int = Form(...), db: Session = Depends(get_db)):

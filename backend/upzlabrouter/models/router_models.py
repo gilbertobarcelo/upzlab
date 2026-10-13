@@ -16,7 +16,7 @@ class RouterApiKey(Base):
     id          = Column(Integer, primary_key=True, index=True)
     dev_id      = Column(Integer, nullable=False, index=True)   # DevProfile.user_id (AppUser.id)
     key_hash    = Column(String(64), nullable=False, unique=True, index=True)  # SHA-256 hex
-    key_prefix  = Column(String(16), nullable=False)            # ex: "upzlk_a1b2c3d4"
+    key_prefix  = Column(String(16), nullable=False)            # ex: "Lab_a1b2c3d4"
     name        = Column(String(100), nullable=False, default="Minha chave")
     is_active   = Column(Boolean, default=True)
     last_used_at = Column(DateTime(timezone=True), nullable=True)

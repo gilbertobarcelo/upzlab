@@ -4,15 +4,13 @@ import os
 # Ajustar o path para poder importar módulos do backend corretamente
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from passlib.context import CryptContext
 from database.database import SessionLocal, engine, Base
 from app.models.user_models import AppUser
 from app.models.dev_tester_models import DevProfile
+from app.core.passwords import hash_password
 
-# Inicializar passlib context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 DEFAULT_PASSWORD = "senha123"
-HASHED_PASSWORD = pwd_context.hash(DEFAULT_PASSWORD)
+HASHED_PASSWORD = hash_password(DEFAULT_PASSWORD)
 
 # Certifique-se de criar as tabelas caso não existam
 Base.metadata.create_all(bind=engine)

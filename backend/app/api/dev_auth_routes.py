@@ -7,9 +7,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 from database.database import get_db
 
-from app.models.dev_tester_models import DevProfile
+from app.models.dev_tester_models import DevProfile, TesterEmailInvite
 from app.models.user_models import AppUser
 import os
+import re
+import secrets
+import smtplib
+import logging
 from typing import Optional
 import json
 from datetime import datetime, timedelta
@@ -161,6 +165,30 @@ async def verify_auth(payload: VerifyAuthPayload, request: Request, db: Session 
         # (O serviço original do upzcontroll foi desvinculado)
         import logging
         logging.getLogger(__name__).info("Notificação de novo Dev Tester seria disparada aqui.")
+
+    referral_record = db.query(TesterEmailInvite).filter(
+        TesterEmailInvite.invitee_user_id == app_user.id,
+        TesterEmailInvite.joined_at.is_(None),
+    ).first()
+    if referral_record:
+        referrer_profile = db.query(DevProfile).filter(
+            DevProfile.id == referral_record.owner_profile_id,
+            DevProfile.status == "ACTIVE",
+        ).first()
+        if referrer_profile:
+            dev_profile.referred_by_id = referrer_profile.id
+            from app.services.economy_rules import UpzPointsReward
+            from app.services.gamification_service import add_points_and_level_up
+            add_points_and_level_up(
+                db,
+                referrer_profile,
+                UpzPointsReward.REFERRAL_BONUS,
+                f"Bônus de Indicação: Cadastrou {app_user.name or app_user.email}",
+                commit=False,
+            )
+            referral_record.joined_at = datetime.utcnow()
+            db.commit()
+
     # 2.5 Capturar modelo do celular (se enviado pelo frontend no cadastro)
     if payload.device_model and payload.device_model.strip():
         # Registrar ou atualizar o dispositivo
@@ -216,13 +244,98 @@ async def verify_auth(payload: VerifyAuthPayload, request: Request, db: Session 
     }
 
 
-from passlib.context import CryptContext
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+from app.core.passwords import hash_password, verify_password
 
 class RegisterPayload(BaseModel):
     name: str
     email: str
     password: str
+    invite_code: Optional[str] = None
+
+
+class EmailInvitesPayload(BaseModel):
+    emails: list[str]
+
+
+def _send_tester_invite_email(invite: TesterEmailInvite, owner: DevProfile, db: Session) -> bool:
+    from app.services.daily_checkin_service import _send_email
+
+    owner_user = db.query(AppUser).filter(AppUser.id == owner.user_id).first()
+    site_url = os.getenv("UPZLAB_PUBLIC_URL", "http://localhost:3003").rstrip("/")
+    invite_url = f"{site_url}/cadastro?invite={invite.invite_code}"
+    sender_name = owner.name or (owner_user.name if owner_user else None) or "Um desenvolvedor"
+    invite.email_last_attempt_at = datetime.utcnow()
+    invite.email_error = None
+    db.commit()
+    try:
+        _send_email(
+            recipient=invite.invited_email,
+            subject=f"{sender_name} convidou você para testar projetos na UpzLab",
+            body=(
+                f"{sender_name} convidou você para participar da comunidade UpzLab e testar projetos.\n\n"
+                f"Crie sua conta usando este convite: {invite_url}\n\n"
+                "Este convite é pessoal e destinado ao endereço de e-mail para o qual foi enviado."
+            ),
+        )
+    except (OSError, smtplib.SMTPException, RuntimeError, ValueError) as exc:
+        invite.email_error = str(exc)[:500]
+        db.commit()
+        logging.getLogger(__name__).exception(
+            "Falha ao enviar convite UpzLab para %s", invite.invited_email
+        )
+        return False
+
+    invite.email_sent_at = datetime.utcnow()
+    invite.email_error = None
+    db.commit()
+    return True
+
+
+def _new_referral_code(db: Session) -> str:
+    while True:
+        code = secrets.token_urlsafe(9).replace("-", "").replace("_", "").upper()[:12]
+        if not db.query(DevProfile.id).filter(DevProfile.referral_code == code).first():
+            return code
+
+
+def _get_authenticated_profile(request: Request, db: Session) -> DevProfile:
+    user_id = _get_user_id_optional(request)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Não autenticado")
+    try:
+        numeric_user_id = int(user_id)
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Sessão inválida")
+
+    app_user = db.query(AppUser).filter(AppUser.id == numeric_user_id).first()
+    if not app_user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    profile = db.query(DevProfile).filter(DevProfile.user_id == numeric_user_id).first()
+    if not profile:
+        profile = DevProfile(
+            user_id=numeric_user_id,
+            name=app_user.name,
+            points=0,
+            egolpe_level="Scanner",
+            status="ACTIVE",
+            referral_code=_new_referral_code(db),
+        )
+        db.add(profile)
+        db.flush()
+        from app.services.economy_rules import UpzPointsReward
+        from app.services.gamification_service import add_points_and_level_up
+        add_points_and_level_up(
+            db,
+            profile,
+            UpzPointsReward.ACCOUNT_CREATED,
+            "Bônus de Boas-vindas: Conta criada na comunidade UpzLab",
+            commit=False,
+        )
+    elif not profile.referral_code:
+        profile.referral_code = _new_referral_code(db)
+        db.commit()
+        db.refresh(profile)
+    return profile
 
 def _require_staff(request: Request, db: Session) -> DevProfile:
     """Exige usuário autenticado com perfil staff (para rotas administrativas)."""
@@ -259,20 +372,274 @@ async def migrate_username(request: Request, db: Session = Depends(get_db)):
         db.rollback()
         return {"success": False, "error": str(e)}
 
+@router.get("/invites/resolve")
+async def resolve_email_invite(code: str, db: Session = Depends(get_db)):
+    invite = db.query(TesterEmailInvite).filter(
+        TesterEmailInvite.invite_code == code,
+        TesterEmailInvite.invitee_user_id.is_(None),
+    ).first()
+    if not invite:
+        raise HTTPException(status_code=404, detail="Convite não encontrado ou já utilizado.")
+    return {"success": True, "email": invite.invited_email}
+
+
+@router.get("/invites")
+async def list_my_invites(request: Request, db: Session = Depends(get_db)):
+    profile = _get_authenticated_profile(request, db)
+    db.commit()
+    db.refresh(profile)
+    invites = db.query(TesterEmailInvite).filter(
+        TesterEmailInvite.owner_profile_id == profile.id,
+        TesterEmailInvite.invite_code.is_not(None),
+    ).order_by(TesterEmailInvite.created_at.desc()).all()
+    joined_count = db.query(TesterEmailInvite.id).filter(
+        TesterEmailInvite.owner_profile_id == profile.id,
+        TesterEmailInvite.joined_at.is_not(None),
+    ).count()
+    return {
+        "success": True,
+        "referral_code": profile.referral_code,
+        "referrals": joined_count,
+        "points_earned": joined_count * 50,
+        "invites": [
+            {
+                "id": invite.id,
+                "email": invite.invited_email,
+                "code": invite.invite_code,
+                "status": "joined" if invite.joined_at else (
+                    "registered" if invite.invitee_user_id else "pending"
+                ),
+                "email_sent_at": invite.email_sent_at.isoformat() if invite.email_sent_at else None,
+                "email_last_attempt_at": invite.email_last_attempt_at.isoformat() if invite.email_last_attempt_at else None,
+                "email_error": invite.email_error,
+                "created_at": invite.created_at.isoformat() if invite.created_at else None,
+                "joined_at": invite.joined_at.isoformat() if invite.joined_at else None,
+            }
+            for invite in invites
+        ],
+    }
+
+
+@router.post("/invites/emails")
+async def add_email_invites(payload: EmailInvitesPayload, request: Request, db: Session = Depends(get_db)):
+    profile = _get_authenticated_profile(request, db)
+    if not payload.emails:
+        raise HTTPException(status_code=400, detail="Informe pelo menos um e-mail.")
+    if len(payload.emails) > 50:
+        raise HTTPException(status_code=400, detail="Envie no máximo 50 e-mails por vez.")
+
+    email_pattern = re.compile(r"^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$")
+    normalized_emails = list(dict.fromkeys(email.strip().lower() for email in payload.emails if email.strip()))
+    invalid = [email for email in normalized_emails if not email_pattern.fullmatch(email)]
+    if invalid:
+        raise HTTPException(status_code=422, detail=f"E-mail inválido: {invalid[0]}")
+    owner_user = db.query(AppUser).filter(AppUser.id == profile.user_id).first()
+    if owner_user and owner_user.email:
+        normalized_emails = [email for email in normalized_emails if email != owner_user.email.lower()]
+    if not normalized_emails:
+        raise HTTPException(status_code=400, detail="Não há e-mails válidos para convidar.")
+
+    daily_invites = db.query(TesterEmailInvite.id).filter(
+        TesterEmailInvite.owner_profile_id == profile.id,
+        TesterEmailInvite.created_at >= datetime.utcnow() - timedelta(days=1),
+    ).count()
+    if daily_invites + len(normalized_emails) > 100:
+        raise HTTPException(status_code=429, detail="O limite diário é de 100 convites por conta.")
+
+    existing_users = {
+        email.lower()
+        for (email,) in db.query(AppUser.email).filter(
+            func.lower(AppUser.email).in_(normalized_emails)
+        ).all()
+        if email
+    }
+    created = []
+    skipped = []
+    for email in normalized_emails:
+        if email in existing_users:
+            skipped.append({"email": email, "reason": "Já possui uma conta"})
+            continue
+        existing_invite = db.query(TesterEmailInvite).filter(
+            TesterEmailInvite.owner_profile_id == profile.id,
+            TesterEmailInvite.invited_email == email,
+        ).first()
+        if existing_invite:
+            skipped.append({"email": email, "reason": "Já está na sua lista"})
+            continue
+        invite = TesterEmailInvite(
+            owner_profile_id=profile.id,
+            invited_email=email,
+            invite_code=secrets.token_urlsafe(32),
+        )
+        db.add(invite)
+        created.append(invite)
+
+    db.commit()
+    send_status = {
+        invite.id: _send_tester_invite_email(invite, profile, db)
+        for invite in created
+    }
+    return {
+        "success": True,
+        "created": [
+            {
+                "id": invite.id,
+                "email": invite.invited_email,
+                "code": invite.invite_code,
+                "status": "pending",
+                "email_sent": send_status[invite.id],
+                "email_error": invite.email_error,
+            }
+            for invite in created
+        ],
+        "skipped": skipped,
+    }
+
+
+@router.post("/invites/emails/{invite_id}/send")
+async def resend_email_invite(invite_id: int, request: Request, db: Session = Depends(get_db)):
+    profile = _get_authenticated_profile(request, db)
+    invite = db.query(TesterEmailInvite).filter(
+        TesterEmailInvite.id == invite_id,
+        TesterEmailInvite.owner_profile_id == profile.id,
+        TesterEmailInvite.invite_code.is_not(None),
+    ).first()
+    if not invite:
+        raise HTTPException(status_code=404, detail="Convite não encontrado.")
+    if invite.invitee_user_id is not None:
+        raise HTTPException(status_code=409, detail="Este tester já iniciou o cadastro.")
+    if invite.email_last_attempt_at and datetime.utcnow() - invite.email_last_attempt_at < timedelta(hours=1):
+        raise HTTPException(status_code=429, detail="Aguarde uma hora antes de tentar enviar este convite novamente.")
+
+    sent = _send_tester_invite_email(invite, profile, db)
+    return {
+        "success": True,
+        "email_sent": sent,
+        "email_error": invite.email_error,
+    }
+
+
+@router.delete("/invites/emails/{invite_id}")
+async def delete_email_invite(invite_id: int, request: Request, db: Session = Depends(get_db)):
+    profile = _get_authenticated_profile(request, db)
+    invite = db.query(TesterEmailInvite).filter(
+        TesterEmailInvite.id == invite_id,
+        TesterEmailInvite.owner_profile_id == profile.id,
+        TesterEmailInvite.invite_code.is_not(None),
+    ).first()
+    if not invite:
+        raise HTTPException(status_code=404, detail="Convite não encontrado.")
+    if invite.invitee_user_id is not None:
+        raise HTTPException(status_code=409, detail="Não é possível remover um convite cujo cadastro já começou.")
+    db.delete(invite)
+    db.commit()
+    return {"success": True}
+
+
+def _public_site_url() -> str:
+    return os.getenv("UPZLAB_PUBLIC_URL", "http://localhost:3003").rstrip("/")
+
+
+def _public_api_url(request: Request) -> str:
+    return os.getenv("UPZLAB_PUBLIC_API_URL", str(request.base_url)).rstrip("/")
+
+
+def _send_verification_email(app_user: AppUser, request: Request) -> bool:
+    """Envia o link de confirmação de e-mail. Sem SMTP, registra o link no log do backend."""
+    from app.services.mail_service import render_email, send_email
+
+    token = jwt.encode(
+        {"sub": str(app_user.id), "email": app_user.email, "type": "email_confirm",
+         "exp": datetime.utcnow() + timedelta(hours=24)},
+        SECRET_KEY, algorithm=ALGORITHM,
+    )
+    link = f"{_public_api_url(request)}/api/dev/auth/email/confirm?token={token}"
+    name = (app_user.name or "dev").split(" ")[0]
+    body = (
+        f"Olá, {name}!\n\nConfirme seu e-mail para ativar sua conta na comunidade UpzLab:\n{link}\n\n"
+        "O link vale por 24 horas. Se você não criou esta conta, ignore este e-mail."
+    )
+    html = render_email(
+        "Confirme seu e-mail",
+        f"Olá, {name}! Clique no botão para ativar sua conta na comunidade UpzLab.\n\nO link vale por 24 horas. Se você não criou esta conta, ignore este e-mail.",
+        "Confirmar e-mail",
+        link,
+    )
+    try:
+        send_email(app_user.email, "Confirme seu e-mail - UpzLab", body, html)
+        return True
+    except Exception as exc:
+        logging.getLogger(__name__).warning(
+            "Não foi possível enviar e-mail de verificação (%s). Link de confirmação: %s", exc, link
+        )
+        return False
+
+
 @router.post("/register")
-async def register_user(payload: RegisterPayload, db: Session = Depends(get_db)):
+async def register_user(payload: RegisterPayload, request: Request, db: Session = Depends(get_db)):
     """Registra um novo usuário Dev com email e senha."""
-    existing_user = db.query(AppUser).filter(AppUser.email == payload.email).first()
+    clean_email = payload.email.strip().lower()
+    existing_user = db.query(AppUser).filter(func.lower(AppUser.email) == clean_email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="E-mail já cadastrado.")
 
-    hashed_pw = pwd_context.hash(payload.password)
+    invite_code = (payload.invite_code or "").strip()
+    referrer = None
+    email_invite = None
+    if invite_code:
+        email_invite = db.query(TesterEmailInvite).filter(
+            TesterEmailInvite.invite_code == invite_code
+        ).first()
+        if email_invite:
+            if email_invite.invited_email != clean_email:
+                raise HTTPException(status_code=400, detail="Este convite foi criado para outro e-mail.")
+            if email_invite.invitee_user_id is not None:
+                raise HTTPException(status_code=400, detail="Este convite já foi utilizado.")
+            referrer = db.query(DevProfile).filter(
+                DevProfile.id == email_invite.owner_profile_id,
+                DevProfile.status == "ACTIVE",
+            ).first()
+        else:
+            referrer = db.query(DevProfile).filter(
+                func.lower(DevProfile.referral_code) == invite_code.lower(),
+                DevProfile.status == "ACTIVE",
+            ).first()
+        if not referrer:
+            raise HTTPException(status_code=400, detail="O link de convite não é válido ou foi revogado.")
+        if db.query(AppUser.id).filter(
+            AppUser.id == referrer.user_id,
+            func.lower(AppUser.email) == clean_email,
+        ).first():
+            raise HTTPException(status_code=400, detail="Você não pode usar seu próprio convite.")
+
+    hashed_pw = hash_password(payload.password)
     new_user = AppUser(
-        name=payload.name,
-        email=payload.email,
+        name=payload.name.strip(),
+        email=clean_email,
         password_hash=hashed_pw
     )
     db.add(new_user)
+    db.flush()
+
+    if referrer:
+        if email_invite:
+            email_invite.invitee_user_id = new_user.id
+        else:
+            pending_invite = db.query(TesterEmailInvite).filter(
+                TesterEmailInvite.owner_profile_id == referrer.id,
+                TesterEmailInvite.invited_email == clean_email,
+            ).first()
+            if pending_invite:
+                if pending_invite.invitee_user_id is not None:
+                    raise HTTPException(status_code=400, detail="Este convite já foi utilizado.")
+                pending_invite.invitee_user_id = new_user.id
+            else:
+                db.add(TesterEmailInvite(
+                    owner_profile_id=referrer.id,
+                    invited_email=clean_email,
+                    invite_code=None,
+                    invitee_user_id=new_user.id,
+                ))
     db.commit()
     db.refresh(new_user)
     
@@ -286,12 +653,79 @@ async def register_user(payload: RegisterPayload, db: Session = Depends(get_db))
     }
     encoded_jwt = jwt.encode(jwt_payload, SECRET_KEY, algorithm=ALGORITHM)
     
+    email_sent = _send_verification_email(new_user, request)
+
     return {
-        "success": True, 
+        "success": True,
         "access_token": encoded_jwt,
-        "action": "complete_profile",
-        "message": "Conta criada! Por favor valide seu telefone."
+        "action": "verify_email",
+        "email_sent": email_sent,
+        "message": "Conta criada! Confirme seu e-mail para continuar."
     }
+
+
+@router.post("/email/resend")
+async def resend_verification_email(request: Request, db: Session = Depends(get_db)):
+    user_id = _get_user_id_optional(request)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Não autorizado")
+    app_user = db.query(AppUser).filter(AppUser.id == int(user_id)).first()
+    if not app_user or not app_user.email:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    if app_user.email_verified:
+        return {"success": True, "verified": True, "email_sent": False}
+    sent = _send_verification_email(app_user, request)
+    return {"success": True, "verified": False, "email_sent": sent}
+
+
+class ChangeEmailPayload(BaseModel):
+    email: str
+
+
+@router.post("/email/change")
+async def change_unverified_email(payload: ChangeEmailPayload, request: Request, db: Session = Depends(get_db)):
+    user_id = _get_user_id_optional(request)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Não autorizado")
+    app_user = db.query(AppUser).filter(AppUser.id == int(user_id)).first()
+    if not app_user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    if app_user.email_verified:
+        raise HTTPException(status_code=400, detail="E-mail já confirmado.")
+    clean = payload.email.strip().lower()
+    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", clean):
+        raise HTTPException(status_code=400, detail="E-mail inválido.")
+    taken = db.query(AppUser.id).filter(func.lower(AppUser.email) == clean, AppUser.id != app_user.id).first()
+    if taken:
+        raise HTTPException(status_code=400, detail="E-mail já cadastrado.")
+    app_user.email = clean
+    db.commit()
+    sent = _send_verification_email(app_user, request)
+    return {"success": True, "email": clean, "email_sent": sent}
+
+
+@router.get("/email/confirm")
+async def confirm_email(token: str, db: Session = Depends(get_db)):
+    from fastapi.responses import RedirectResponse as _Redirect
+    site = _public_site_url()
+    try:
+        data = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        if data.get("type") != "email_confirm":
+            raise ValueError("tipo inválido")
+        app_user = db.query(AppUser).filter(AppUser.id == int(data["sub"])).first()
+        if not app_user or (app_user.email or "").lower() != (data.get("email") or "").lower():
+            raise ValueError("usuário inválido")
+    except Exception:
+        return _Redirect(f"{site}/verificar-email?error=invalid_link")
+
+    app_user.email_verified = True
+    db.commit()
+    session_jwt = jwt.encode(
+        {"sub": str(app_user.id), "email": app_user.email, "is_dev": True,
+         "exp": datetime.utcnow() + timedelta(days=7)},
+        SECRET_KEY, algorithm=ALGORITHM,
+    )
+    return _Redirect(f"{site}/login/callback?token={session_jwt}&action=dashboard")
 
 
 class LoginPayload(BaseModel):
@@ -307,17 +741,16 @@ async def login_user(payload: LoginPayload, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="E-mail não cadastrado. Por favor, crie uma conta primeiro.")
         
     if app_user.password_hash:
-        try:
-            valid_password = pwd_context.verify(payload.password, app_user.password_hash)
-        except Exception:
-            # Hash em formato desconhecido (legado em texto puro): só aceita
-            # se bater exatamente e faz o upgrade imediato para bcrypt.
-            if app_user.password_hash == payload.password:
-                app_user.password_hash = pwd_context.hash(payload.password)
-                db.commit()
-                valid_password = True
-            else:
-                valid_password = False
+        if app_user.password_hash.startswith(("$2a$", "$2b$", "$2y$")):
+            valid_password = verify_password(payload.password, app_user.password_hash)
+        elif app_user.password_hash == payload.password:
+            # Hash em texto puro legado: só aceita correspondência exata e
+            # migra imediatamente para bcrypt.
+            app_user.password_hash = hash_password(payload.password)
+            db.commit()
+            valid_password = True
+        else:
+            valid_password = False
         if not valid_password:
             raise HTTPException(status_code=401, detail="Senha incorreta.")
     else:
@@ -341,7 +774,7 @@ async def login_user(payload: LoginPayload, db: Session = Depends(get_db)):
     return {
         "success": True, 
         "access_token": encoded_jwt,
-        "action": "complete_profile" if needs_profile else "dashboard",
+        "action": "verify_email" if not app_user.email_verified else ("complete_profile" if needs_profile else "dashboard"),
         "message": "Login bem-sucedido"
     }
 
@@ -429,7 +862,7 @@ async def verify_email(token: str, db: Session = Depends(get_db)):
         encoded_jwt = jwt.encode(jwt_payload, SECRET_KEY, algorithm=ALGORITHM)
         
         from fastapi.responses import RedirectResponse
-        response = RedirectResponse(url="http://localhost:3003/")
+        response = RedirectResponse(url="http://localhost:3003/comunidade")
         response.set_cookie("upzlab_dev_jwt", encoded_jwt, max_age=60*60*24*7, path="/")
         return response
 
@@ -451,7 +884,7 @@ class VerifyRoutePayload(BaseModel):
     path: str
 
 @router.post("/verify-route")
-async def verify_route(payload: VerifyRoutePayload, request: Request):
+async def verify_route(payload: VerifyRoutePayload, request: Request, db: Session = Depends(get_db)):
     """
     Server-Driven Routing:
     O Middleware do Next.js chama esta rota para saber se o usuário tem permissão
@@ -463,22 +896,30 @@ async def verify_route(payload: VerifyRoutePayload, request: Request):
     # Telas de autenticação: anônimo entra; logado é mandado pro feed.
     auth_pages = {"/login", "/cadastro"}
     # Conteúdo público que NÃO exige login.
+    public_pages  = {"/", "/sobre", "/login/callback"}
     public_prefixes = ("/docs", "/docslab", "/tutorial")
 
-    is_auth_page = payload.path in auth_pages
+    is_auth_page    = payload.path in auth_pages
+    is_public_page  = payload.path in public_pages
     is_public_content = any(
         payload.path == p or payload.path.startswith(p + "/")
         for p in public_prefixes
     )
 
     if not user_id:
-        if is_auth_page or is_public_content:
+        if is_auth_page or is_public_content or is_public_page:
             return {"allow": True}
         return {"redirect_to": "/login"}
 
+    # E-mail ainda não confirmado: só a tela de verificação (e conteúdo público) é liberada.
+    if payload.path != "/verificar-email" and not is_public_content and not is_public_page:
+        app_user = db.query(AppUser).filter(AppUser.id == int(user_id)).first()
+        if app_user and not app_user.email_verified:
+            return {"redirect_to": "/verificar-email"}
+
     # Logado não reabre telas de autenticação.
     if is_auth_page:
-        return {"redirect_to": "/"}
+        return {"redirect_to": "/comunidade"}
 
     # Conteúdo público continua liberado; demais rotas exigem sessão válida.
     return {"allow": True}
@@ -592,6 +1033,12 @@ async def get_me(request: Request, db: Session = Depends(get_db)):
             "coverUrl": getattr(dev_profile, "cover_url", None) or "",
             "createdAt": app_user.created_at.isoformat() if hasattr(app_user, 'created_at') and app_user.created_at else (dev_profile.created_at.isoformat() if hasattr(dev_profile, 'created_at') and dev_profile.created_at else None),
             "is_staff": is_staff,
+            "email_verified": bool(app_user.email_verified),
+            "github_account_age_days": dev_profile.github_account_age_days or 0,
+            "github_total_repos": dev_profile.github_total_repos or 0,
+            "github_score": dev_profile.github_score or 0,
+            "github_connected": bool(dev_profile.github_username),
+            "github_avatar_url": f"https://github.com/{dev_profile.github_username}.png" if dev_profile.github_username else "",
         }
     }
 
@@ -692,6 +1139,63 @@ async def update_dev_profile(
 from fastapi.responses import RedirectResponse
 import urllib.parse
 
+
+def _sync_github_into_profile(dev_profile, gh_user: dict):
+    """Importa do GitHub: usuário, experiência (idade da conta/repos), linguagens, bio e foto (só se o perfil ainda não tem)."""
+    import requests
+    import datetime as _dt
+    from collections import Counter
+
+    login = gh_user.get("login")
+    dev_profile.github_username = login
+
+    created_at_str = gh_user.get("created_at")
+    age_days = 0
+    if created_at_str:
+        try:
+            created = _dt.datetime.fromisoformat(created_at_str.rstrip("Z"))
+            age_days = max((_dt.datetime.utcnow() - created).days, 0)
+        except Exception as e:
+            print(f"Erro ao parsear created_at: {e}")
+    public_repos = gh_user.get("public_repos", 0) or 0
+    dev_profile.github_account_age_days = age_days
+    dev_profile.github_total_repos = public_repos
+
+    if not dev_profile.github_score:
+        bonus = min((age_days // 365) * 10 + public_repos * 2, 500)
+        dev_profile.github_score = bonus
+        dev_profile.points = (dev_profile.points or 0) + bonus
+
+    if not dev_profile.avatar_url and gh_user.get("avatar_url"):
+        dev_profile.avatar_url = gh_user["avatar_url"]
+    if not (dev_profile.bio or "").strip() and gh_user.get("bio"):
+        dev_profile.bio = gh_user["bio"][:500]
+
+    try:
+        repos_res = requests.get(f"https://api.github.com/users/{login}/repos?per_page=100", timeout=8)
+        if repos_res.status_code == 200:
+            languages = [r.get("language") for r in repos_res.json() if r.get("language")]
+            if languages:
+                dev_profile.top_languages = ", ".join(l for l, _ in Counter(languages).most_common(3))
+    except Exception as e:
+        print(f"Erro ao buscar repositórios do GitHub: {e}")
+
+
+@router.post("/profile/github-avatar")
+async def use_github_avatar(request: Request, db: Session = Depends(get_db)):
+    user_id = _get_user_id_optional(request)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Não autorizado")
+    dev_profile = db.query(DevProfile).filter(DevProfile.user_id == int(user_id)).first()
+    if not dev_profile:
+        raise HTTPException(status_code=404, detail="Perfil não encontrado")
+    if not dev_profile.github_username:
+        raise HTTPException(status_code=400, detail="Conecte o GitHub primeiro")
+    dev_profile.avatar_url = f"https://github.com/{urllib.parse.quote(dev_profile.github_username)}.png"
+    db.commit()
+    return {"success": True, "avatarUrl": dev_profile.avatar_url}
+
+
 @router.get("/github/login")
 async def github_login(token: str = None, action: str = "connect", request: Request = None, db: Session = Depends(get_db)):
     """Inicia o fluxo OAuth com o GitHub.
@@ -711,7 +1215,7 @@ async def github_login(token: str = None, action: str = "connect", request: Requ
     except:
         raise HTTPException(status_code=500, detail="Configuração do GitHub inválida")
         
-    if action == "login":
+    if action in ("login", "register"):
         state = "login_flow"
     else:
         if not token:
@@ -721,6 +1225,8 @@ async def github_login(token: str = None, action: str = "connect", request: Requ
     redirect_uri = "http://localhost:8001/api/dev/auth/github/callback"
     
     url = f"https://github.com/login/oauth/authorize?client_id={client_id}&redirect_uri={urllib.parse.quote(redirect_uri)}&scope=user:email,read:user&state={state}"
+    if action in ("login", "register"):
+        url += "&prompt=select_account"
     return RedirectResponse(url)
 
 @router.get("/github/callback")
@@ -815,12 +1321,37 @@ async def github_callback(code: str, state: str, db: Session = Depends(get_db)):
                 # Criar um novo AppUser
                 app_user = AppUser(
                     name=gh_user.get("name") or github_username,
-                    email=email
+                    email=email,
+                    email_verified=True
                 )
                 db.add(app_user)
                 db.commit()
                 db.refresh(app_user)
+            elif not app_user.email_verified:
+                app_user.email_verified = True
+                db.commit()
                 
+            # Cria/atualiza o perfil com os dados do GitHub (experiência, linguagens, foto, bio)
+            login_profile = db.query(DevProfile).filter(DevProfile.user_id == app_user.id).first()
+            is_new_profile = login_profile is None
+            if is_new_profile:
+                login_profile = DevProfile(
+                    user_id=app_user.id,
+                    name=app_user.name,
+                    points=0,
+                    egolpe_level="Scanner",
+                    status="ACTIVE"
+                )
+                db.add(login_profile)
+                db.commit()
+                db.refresh(login_profile)
+            _sync_github_into_profile(login_profile, gh_user)
+            db.commit()
+            if is_new_profile:
+                from app.services.gamification_service import add_points_and_level_up
+                from app.services.economy_rules import UpzPointsReward
+                add_points_and_level_up(db, login_profile, UpzPointsReward.ACCOUNT_CREATED, "Bônus de Boas-vindas: Conta criada na comunidade UpzLab")
+
             # Gera JWT e redireciona para login bem sucedido passando token na URL
             expire = datetime.utcnow() + timedelta(days=7)
             jwt_payload = {
@@ -831,52 +1362,16 @@ async def github_callback(code: str, state: str, db: Session = Depends(get_db)):
             }
             encoded_jwt = jwt.encode(jwt_payload, SECRET_KEY, algorithm=ALGORITHM)
             
-            # Se não tem telefone, ele precisa completar o perfil
-            next_action = "complete_profile" if not app_user.phone else "dashboard"
+            # Celular não é exigido no login via GitHub (verificação fica opcional, na página de perfil)
+            next_action = "dashboard"
             return RedirectResponse(f"http://localhost:3003/login/callback?token={encoded_jwt}&action={next_action}")
             
         # 5. Fluxo de "Connect" normal
         dev_profile = db.query(DevProfile).filter(DevProfile.user_id == int(user_id)).first()
         if dev_profile:
-            dev_profile.github_username = github_username
-            dev_profile.avatar_url = avatar_url
-            
-            import datetime
-            account_age_days = 0
-            if created_at_str:
-                try:
-                    if created_at_str.endswith("Z"):
-                        created_at_str = created_at_str[:-1]
-                    gh_created_at = datetime.datetime.fromisoformat(created_at_str)
-                    account_age_days = (datetime.datetime.utcnow() - gh_created_at).days
-                except Exception as e:
-                    print(f"Erro ao parsear created_at: {e}")
-            
-            dev_profile.github_account_age_days = account_age_days
-            dev_profile.github_total_repos = public_repos
-            
-            if dev_profile.github_score == 0:
-                years_active = account_age_days // 365
-                points_from_age = years_active * 10
-                points_from_repos = public_repos * 2
-                
-                total_bonus = points_from_age + points_from_repos
-                if total_bonus > 500:
-                    total_bonus = 500
-                    
-                dev_profile.github_score = total_bonus
-                dev_profile.points = (dev_profile.points or 0) + total_bonus
-            
-            repos_res = requests.get(f"https://api.github.com/users/{github_username}/repos?per_page=100")
-            if repos_res.status_code == 200:
-                repos = repos_res.json()
-                languages = [r.get("language") for r in repos if r.get("language")]
-                if languages:
-                    counter = Counter(languages)
-                    top_3 = [lang for lang, _ in counter.most_common(3)]
-                    dev_profile.top_languages = ", ".join(top_3)
+            _sync_github_into_profile(dev_profile, gh_user)
             db.commit()
-            
+
         return RedirectResponse("http://localhost:3003/perfil?success=github_connected")
     except Exception as e:
         print(f"Erro no Callback GitHub: {e}")
@@ -1002,6 +1497,49 @@ async def list_devs_for_points(request: Request, db: Session = Depends(get_db)):
             for d in devs
         ]
     }
+
+
+@router.post("/profile/avatar")
+async def upload_avatar(request: Request, avatar: UploadFile = File(...), db: Session = Depends(get_db)):
+    """Upload da foto de perfil a partir do computador."""
+    user_id = _get_user_id_optional(request)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Não autenticado")
+    dev = db.query(DevProfile).filter(DevProfile.user_id == int(user_id)).first()
+    if not dev:
+        raise HTTPException(status_code=404, detail="Perfil não encontrado")
+
+    import os, uuid as _uuid
+    ext = avatar.filename.rsplit(".", 1)[-1].lower() if avatar.filename and "." in avatar.filename else ""
+    if ext not in ("jpg", "jpeg", "png", "webp"):
+        raise HTTPException(status_code=400, detail="Formato inválido. Use JPG, PNG ou WebP.")
+    data = await avatar.read()
+    if len(data) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Imagem muito grande (máx. 5MB).")
+
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    avatars_dir = os.path.join(BASE_DIR, "uploads", "avatars")
+    os.makedirs(avatars_dir, exist_ok=True)
+    fname = f"avatar_{dev.id}_{_uuid.uuid4().hex[:8]}.{ext}"
+    with open(os.path.join(avatars_dir, fname), "wb") as f:
+        f.write(data)
+
+    dev.avatar_url = f"{str(request.base_url).rstrip('/')}/uploads/avatars/{fname}"
+    db.commit()
+    return {"success": True, "avatarUrl": dev.avatar_url}
+
+
+@router.post("/profile/avatar/official")
+async def use_official_avatar(request: Request, db: Session = Depends(get_db)):
+    user_id = _get_user_id_optional(request)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Não autenticado")
+    dev = db.query(DevProfile).filter(DevProfile.user_id == int(user_id)).first()
+    if not dev or not getattr(dev, "is_staff", False):
+        raise HTTPException(status_code=403, detail="Apenas a equipe UpzLab")
+    dev.avatar_url = "/favicon.svg"
+    db.commit()
+    return {"success": True, "avatarUrl": dev.avatar_url}
 
 
 @router.post("/profile/cover")

@@ -57,20 +57,39 @@ class CohereProvider(BaseProvider):
         if res.status_code not in (200, 201):
             raise RouterProviderError("cohere", f"HTTP {res.status_code}: {res.text[:200]}")
 
-        body = res.json()
+        try:
+            body = res.json()
+        except ValueError as exc:
+            raise RouterProviderError("cohere", "Resposta JSON inválida do provedor.") from exc
+        if not isinstance(body, dict):
+            raise RouterProviderError("cohere", "Resposta inválida do provedor.")
 
         # Extrai conteúdo da resposta Cohere v2
         content = ""
         message = body.get("message", {})
+        if not isinstance(message, dict) or not isinstance(message.get("content", []), list):
+            raise RouterProviderError("cohere", "Resposta sem conteúdo de mensagem válido.")
         for block in message.get("content", []):
+            if not isinstance(block, dict):
+                continue
             if block.get("type") == "text":
-                content += block.get("text", "")
+                text = block.get("text", "")
+                if isinstance(text, str):
+                    content += text
 
         # Tokens de uso
         usage = body.get("usage", {})
+        if not isinstance(usage, dict):
+            usage = {}
         billed = usage.get("billed_units", {})
+        if not isinstance(billed, dict):
+            billed = {}
         prompt_tokens     = billed.get("input_tokens", 0)
         completion_tokens = billed.get("output_tokens", 0)
+        if not isinstance(prompt_tokens, int) or prompt_tokens < 0:
+            prompt_tokens = 0
+        if not isinstance(completion_tokens, int) or completion_tokens < 0:
+            completion_tokens = 0
 
         return ChatResponse(
             content=content,
@@ -91,5 +110,5 @@ class CohereProvider(BaseProvider):
                 timeout=10,
             )
             return res.status_code in (200, 201)
-        except Exception:
+        except requests.exceptions.RequestException:
             return False

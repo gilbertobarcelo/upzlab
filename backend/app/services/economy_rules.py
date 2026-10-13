@@ -18,6 +18,7 @@ class UpzPointsReward:
     APP_PUBLISHED = 150          # Bônus ao publicar um app na vitrine
 
     # 4. Qualidade de Teste (Feedbacks e Bugs)
+    DAILY_APP_OPEN = 50          # Check-in diário validado pelo SDK
     POST_CREATED = 10            # Publicar no feed da comunidade
     FEEDBACK_UX_APPROVED = 50
     BUG_MINOR_APPROVED = 100

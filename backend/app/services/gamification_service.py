@@ -13,7 +13,13 @@ def get_level_for_points(points: int) -> str:
     else:
         return "Cyber Ninja"
 
-def add_points_and_level_up(db: Session, dev_profile: DevProfile, points_to_add: int, reason: str = ""):
+def add_points_and_level_up(
+    db: Session,
+    dev_profile: DevProfile,
+    points_to_add: int,
+    reason: str = "",
+    commit: bool = True,
+):
     """
     Adiciona pontos ao perfil do dev tester, recalcula o nível, salva a transação no Ledger 
     e adiciona um certificado de graduação se o nível subir.
@@ -47,8 +53,9 @@ def add_points_and_level_up(db: Session, dev_profile: DevProfile, points_to_add:
             certs.append(certificate_name)
             dev_profile.certificates = json.dumps(certs)
             
-    db.commit()
-    db.refresh(dev_profile)
+    if commit:
+        db.commit()
+        db.refresh(dev_profile)
     return dev_profile
 
 def process_app_founder_download(db: Session, dev_profile: DevProfile):

@@ -3,13 +3,13 @@
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background-color: #0d1117;
+  background-color: #121212;
   color: #e0e0e0;
 }
 
 .processingCard, .errorCard {
-  background-color: #161b22;
-  border: 1px solid #30363d;
+  background-color: #1a1d21;
+  border: 1px solid #2a2e35;
   border-radius: 12px;
   padding: 50px;
   text-align: center;
@@ -18,11 +18,11 @@
 }
 
 .spinner {
-  border: 4px solid rgba(88, 166, 255, 0.2);
+  border: 4px solid rgba(34, 211, 238, 0.25);
   width: 50px;
   height: 50px;
   border-radius: 50%;
-  border-left-color: #58a6ff;
+  border-left-color: #22d3ee;
   animation: spin 1s linear infinite;
   margin: 0 auto 30px auto;
 }
@@ -34,35 +34,35 @@
 
 .processingTitle {
   font-size: 1.8rem;
-  color: #ffffff;
+  color: #e0e0e0;
   margin-bottom: 15px;
 }
 
 .processingSubtitle {
   font-size: 1rem;
-  color: #c9d1d9;
+  color: #c6cbd2;
   line-height: 1.5;
   margin-bottom: 30px;
 }
 
 /* TERMINAL UX */
 .terminal {
-  background-color: #0d1117;
-  border: 1px solid #30363d;
-  border-radius: 8px;
+  background-color: #16181d;
+  border: 1px solid #2a2e35;
+  border-radius: 6px;
   overflow: hidden;
   text-align: left;
-  font-family: 'Fira Code', 'Courier New', Courier, monospace;
+  font-family: var(--upz-mono), ui-monospace, monospace;
   box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
 
 .terminalHeader {
-  background-color: #161b22;
+  background-color: #1a1d21;
   padding: 8px 15px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #30363d;
+  border-bottom: 1px solid #2a2e35;
 }
 
 .terminalWindowControls {
@@ -80,7 +80,7 @@
 
 .terminalTitle {
   margin-left: 15px;
-  color: #8b949e;
+  color: #8a9199;
   font-size: 0.8rem;
   font-weight: bold;
 }
@@ -95,21 +95,21 @@
 
 .logLine {
   margin-bottom: 6px;
-  color: #c9d1d9;
+  color: #c6cbd2;
 }
 
 .logLineBlinking {
   margin-bottom: 6px;
-  color: #c9d1d9;
+  color: #c6cbd2;
 }
 
 .logTime {
-  color: #8b949e;
+  color: #8a9199;
   margin-right: 10px;
 }
 
 .logInfo {
-  color: #58a6ff;
+  color: #22d3ee;
   font-weight: bold;
   margin-right: 10px;
 }
@@ -127,13 +127,13 @@
 }
 
 .logPath {
-  color: #a5d6ff;
+  color: #a5f3fc;
 }
 
 .cursor {
   display: inline-block;
   width: 8px;
-  background-color: #c9d1d9;
+  background-color: #c6cbd2;
   animation: blink 1s step-end infinite;
   margin-left: 2px;
 }
@@ -147,24 +147,24 @@
   display: inline-block;
   margin-top: 20px;
   padding: 10px 20px;
-  background-color: #21262d;
-  color: #c9d1d9;
+  background-color: #20242b;
+  color: #c6cbd2;
   text-decoration: none;
   border-radius: 6px;
-  border: 1px solid #30363d;
+  border: 1px solid #2a2e35;
 }
 
 .layout {
   display: flex;
   min-height: 100vh;
-  background-color: #0d1117;
+  background-color: #121212;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 .sidebar {
   width: 320px;
-  background-color: #161b22;
-  border-right: 1px solid #30363d;
+  background-color: #1a1d21;
+  border-right: 1px solid #2a2e35;
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -174,19 +174,22 @@
 
 .sidebarHeader {
   padding: 24px;
-  border-bottom: 1px solid #30363d;
+  border-bottom: 1px solid #2a2e35;
 }
 
 .sidebarTitle {
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: #ffffff;
+  font-family: var(--upz-mono), ui-monospace, monospace;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #e0e0e0;
   margin-bottom: 8px;
 }
 
 .repoLink {
   font-size: 0.85rem;
-  color: #58a6ff;
+  color: #22d3ee;
   text-decoration: none;
 }
 
@@ -209,7 +212,7 @@
 
 .fileListTitle {
   font-size: 0.8rem;
-  color: #8b949e;
+  color: #8a9199;
   font-weight: 600;
   margin-bottom: 15px;
   letter-spacing: 0.05em;
@@ -224,7 +227,7 @@
   background: transparent;
   border: none;
   border-radius: 6px;
-  color: #c9d1d9;
+  color: #c6cbd2;
   font-size: 0.95rem;
   text-align: left;
   cursor: pointer;
@@ -232,12 +235,12 @@
 }
 
 .fileItem:hover {
-  background-color: #21262d;
+  background-color: #20242b;
 }
 
 .activeFile {
-  background-color: #238636 !important;
-  color: #ffffff !important;
+  background-color: rgba(34, 211, 238, 0.12) !important;
+  color: #22d3ee !important;
   font-weight: 500;
 }
 
@@ -267,19 +270,19 @@
   justify-content: space-between;
   margin-bottom: 40px;
   padding-bottom: 20px;
-  border-bottom: 1px solid #30363d;
+  border-bottom: 1px solid #2a2e35;
 }
 
 .docTitle {
   font-size: 2rem;
   font-weight: 600;
-  color: #ffffff;
+  color: #e0e0e0;
 }
 
 .badge {
-  background-color: rgba(88, 166, 255, 0.1);
-  color: #58a6ff;
-  border: 1px solid rgba(88, 166, 255, 0.4);
+  background-color: rgba(34, 211, 238, 0.1);
+  color: #22d3ee;
+  border: 1px solid rgba(34, 211, 238, 0.4);
   padding: 4px 10px;
   border-radius: 20px;
   font-size: 0.8rem;
@@ -289,25 +292,27 @@
 .docContent {
   font-size: 1.05rem;
   line-height: 1.7;
-  color: #c9d1d9;
+  color: #c6cbd2;
 }
 
 .docContent h2, .docContent h3 {
-  color: #ffffff;
+  color: #e0e0e0;
   margin-top: 30px;
   margin-bottom: 15px;
 }
 
 .docContent code {
-  background-color: #21262d;
+  background-color: #20242b;
+  border: 1px solid #2a2e35;
   padding: 2px 6px;
   border-radius: 4px;
-  font-family: monospace;
+  font-family: var(--upz-mono), ui-monospace, monospace;
   font-size: 0.9em;
+  color: #a5f3fc;
 }
 
 .docContent strong {
-  color: #e6edf3;
+  color: #e0e0e0;
   font-weight: 600;
 }
 
@@ -316,7 +321,7 @@
   justify-content: center;
   align-items: center;
   height: 100vh;
-  color: #8b949e;
+  color: #8a9199;
   font-size: 1.2rem;
 }
 
@@ -324,11 +329,11 @@
   display: inline-block;
   padding: 4px 12px;
   background-color: transparent;
-  color: #8b949e;
-  border: 1px solid #30363d;
+  color: #8a9199;
+  border: 1px solid #2a2e35;
   border-radius: 4px;
   font-size: 0.75rem;
-  font-family: 'Fira Code', 'Courier New', Courier, monospace;
+  font-family: var(--upz-mono), ui-monospace, monospace;
   font-weight: 600;
   text-decoration: none;
   transition: all 0.2s;
@@ -336,8 +341,8 @@
 
 .cancelProcessingBtn:hover {
   background-color: rgba(139, 148, 158, 0.1);
-  color: #c9d1d9;
-  border-color: #8b949e;
+  color: #c6cbd2;
+  border-color: #8a9199;
 }
 
 .wrapper {
@@ -347,8 +352,8 @@
 }
 
 .previewBanner {
-  background: linear-gradient(90deg, #161b22 0%, #1e293b 100%);
-  border-bottom: 1px solid #30363d;
+  background: linear-gradient(90deg, #1a1d21 0%, #1e293b 100%);
+  border-bottom: 1px solid #2a2e35;
   padding: 16px 24px;
   display: flex;
   justify-content: space-between;
@@ -371,7 +376,7 @@
 }
 
 .bannerText {
-  color: #94a3b8;
+  color: #8a9199;
   font-size: 0.85rem;
   line-height: 1.4;
 }
@@ -406,8 +411,8 @@
   gap: 6px;
   padding: 8px 14px;
   background-color: transparent;
-  color: #8b949e;
-  border: 1px solid #30363d;
+  color: #8a9199;
+  border: 1px solid #2a2e35;
   border-radius: 6px;
   font-size: 0.82rem;
   font-weight: 600;
@@ -417,9 +422,9 @@
 }
 
 .regenButton:hover {
-  background-color: #21262d;
-  color: #c9d1d9;
-  border-color: #8b949e;
+  background-color: #20242b;
+  color: #c6cbd2;
+  border-color: #8a9199;
 }
 
 .regenButton:disabled {
@@ -431,7 +436,7 @@
   width: 12px;
   height: 12px;
   border: 2px solid rgba(139, 148, 158, 0.3);
-  border-left-color: #8b949e;
+  border-left-color: #8a9199;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   flex-shrink: 0;
@@ -455,8 +460,8 @@
   align-items: center;
   padding: 8px 14px;
   background-color: transparent;
-  color: #c9d1d9;
-  border: 1px solid #8b949e;
+  color: #c6cbd2;
+  border: 1px solid #8a9199;
   border-radius: 6px;
   font-size: 0.82rem;
   font-weight: 600;
@@ -466,8 +471,8 @@
 }
 
 .previewBtn:hover {
-  background-color: #21262d;
-  border-color: #c9d1d9;
+  background-color: #20242b;
+  border-color: #c6cbd2;
 }
 
 /* ── Responsivo mobile ────────────────────────────────── */
@@ -543,7 +548,7 @@
 .sectionTitle {
   font-size: 1rem;
   font-weight: 600;
-  color: #c9d1d9;
+  color: #c6cbd2;
   margin-bottom: 16px;
 }
 
@@ -558,10 +563,10 @@
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  background-color: #161b22;
+  background-color: #1a1d21;
   padding: 12px 16px;
   border-radius: 6px;
-  border: 1px solid #30363d;
+  border: 1px solid #2a2e35;
   flex-wrap: wrap;
 }
 
@@ -576,12 +581,12 @@
 .fileIcon {
   width: 18px;
   height: 18px;
-  color: #8b949e;
+  color: #8a9199;
   flex-shrink: 0;
 }
 
 .fileName {
-  color: #c9d1d9;
+  color: #c6cbd2;
   font-weight: 500;
   font-size: 0.9rem;
   word-break: break-word;

@@ -76,6 +76,8 @@ export interface BetaApp {
   tags: string[];
   icon: string;
   is_founder_app?: boolean;
+  boost_level?: number;
+  boost_expires_at?: string | null;
 }
 
 interface ComunidadeContextType {
@@ -100,6 +102,8 @@ interface ComunidadeContextType {
     github_account_age_days?: number;
     github_total_repos?: number;
     github_score?: number;
+    github_connected?: boolean;
+    github_avatar_url?: string;
     is_staff?: boolean;
   };
   posts: DevPost[];
@@ -168,6 +172,8 @@ export function ComunidadeProvider({ children }: { children: React.ReactNode }) 
     github_account_age_days?: number;
     github_total_repos?: number;
     github_score?: number;
+    github_connected?: boolean;
+    github_avatar_url?: string;
   }>({
     name: "",
     email: "",
@@ -499,13 +505,19 @@ export function ComunidadeProvider({ children }: { children: React.ReactNode }) 
   };
 
   const logout = () => {
-    // Remove todos os nomes possíveis de cookie
+    // Remove todos os nomes possíveis de cookie (host atual e domínio pai)
+    const host = typeof window !== "undefined" ? window.location.hostname : "";
     ["upzlab_dev_jwt", "auth_token"].forEach(name => {
-      document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;`;
+      const expired = `${name}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:01 GMT`;
+      document.cookie = expired;
+      if (host) {
+        document.cookie = `${expired}; domain=${host}`;
+        document.cookie = `${expired}; domain=.${host}`;
+      }
     });
     setIsLoggedIn(false);
     if (typeof window !== "undefined") {
-      window.location.href = "/login";
+      window.location.replace("/login");
     }
   };
 

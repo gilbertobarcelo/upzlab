@@ -106,7 +106,7 @@ export default function AISupportPage() {
                 }`}
                 dangerouslySetInnerHTML={{
                   __html: escapeHtml(msg.content)
-                    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color: #58a6ff; text-decoration: underline;">$1</a>')
+                    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color: #22d3ee; text-decoration: underline;">$1</a>')
                     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                     .replace(/\n/g, '<br/>')
                 }}

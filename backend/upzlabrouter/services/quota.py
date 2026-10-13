@@ -57,6 +57,8 @@ def increment(provider: str, db: Session):
 
 def get_all_status(db: Session) -> list[dict]:
     """Retorna status de todos os provedores para o dashboard."""
+    for provider in PROVIDER_DAILY_LIMITS:
+        get_or_create_status(provider, db)
     statuses = db.query(RouterProviderStatus).all()
     result = []
     for s in statuses:

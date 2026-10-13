@@ -12,7 +12,7 @@ export default function StudioLayout({ children }: { children: React.ReactNode }
     <div className="flex flex-col min-h-screen bg-[#0A0E1A] space-y-6">
       <header className="bg-[#131D33]/90 border border-slate-800 rounded-2xl p-6 flex items-center justify-between shadow-xl backdrop-blur-xl">
         <div>
-          <h1 className="text-2xl font-black text-white tracking-tight">App Studio</h1>
+          <h1 className="text-2xl font-black text-white tracking-tight">Lab Studio</h1>
           <p className="text-sm font-mono text-slate-400 mt-1">
             Painel profissional de gestão de testes e desempenho
           </p>
@@ -43,6 +43,9 @@ export default function StudioLayout({ children }: { children: React.ReactNode }
         </Link>
         <Link href={`/studio/${id}/configuracoes`} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${pathname === `/studio/${id}/configuracoes` ? "bg-slate-800 text-emerald-400 shadow-sm" : "hover:bg-slate-800/60 text-slate-400 hover:text-white"}`}>
           Configurações
+        </Link>
+        <Link href={`/studio/${id}/sdk`} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${pathname === `/studio/${id}/sdk` ? "bg-slate-800 text-emerald-400 shadow-sm" : "hover:bg-slate-800/60 text-slate-400 hover:text-white"}`}>
+          Integração SDK
         </Link>
       </nav>
 

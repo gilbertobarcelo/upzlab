@@ -226,7 +226,7 @@ export default function ViewerClient({ appName }: { appName: string }) {
       <div className={styles.fileListSection}>
         <h2 className={styles.sectionTitle}>Páginas Geradas pela IA</h2>
         {appData.files.length === 0
-          ? <p style={{ color: '#8b949e' }}>Nenhuma página gerada ainda.</p>
+          ? <p style={{ color: '#8a9199' }}>Nenhuma página gerada ainda.</p>
           : (
             <div className={styles.fileGrid}>
               {appData.files.map(file => (

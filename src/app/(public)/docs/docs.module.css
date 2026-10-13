@@ -1,16 +1,17 @@
 .layout {
   display: flex;
   min-height: 100vh;
-  background-color: #0d1117;
+  background-color: #121212;
   color: #e0e0e0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--upz-sans), system-ui, -apple-system, sans-serif;
 }
 
+/* ── Sidebar ─────────────────────────────────────────────── */
 .sidebar {
   width: 280px;
-  background-color: #161b22;
-  border-right: 1px solid #30363d;
-  padding: 30px 20px;
+  background-color: #1a1d21;
+  border-right: 1px solid #2a2e35;
+  padding: 28px 20px;
   position: sticky;
   top: 0;
   height: 100vh;
@@ -18,115 +19,260 @@
 }
 
 .sidebarTitle {
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: #ffffff;
-  margin-bottom: 20px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #30363d;
+  font-family: var(--upz-mono), ui-monospace, monospace;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: #e0e0e0;
+  margin: 0 0 8px 0;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #2a2e35;
+}
+
+.sidebarTitle::before {
+  content: "▸ ";
+  color: #22d3ee;
 }
 
 .sidebarCategory {
-  margin-bottom: 20px;
+  margin-bottom: 22px;
 }
 
 .sidebarCategoryTitle {
-  font-size: 0.9rem;
+  font-family: var(--upz-mono), ui-monospace, monospace;
+  font-size: 0.68rem;
   text-transform: uppercase;
-  color: #8b949e;
+  color: #8a9199;
   margin-bottom: 10px;
-  letter-spacing: 0.05em;
-  font-weight: 600;
+  letter-spacing: 0.12em;
+  font-weight: 500;
+  padding-left: 2px;
 }
 
 .sidebarLink {
   display: block;
-  color: #c9d1d9;
+  color: #c6cbd2;
   text-decoration: none;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   padding: 6px 10px;
-  border-radius: 6px;
-  margin-bottom: 4px;
-  transition: background-color 0.2s, color 0.2s;
+  border-radius: 4px;
+  margin-bottom: 2px;
+  border-left: 2px solid transparent;
+  transition: background-color 0.15s, color 0.15s;
 }
 
 .sidebarLink:hover {
-  background-color: #21262d;
-  color: #ffffff;
+  background-color: #20242b;
+  color: #e0e0e0;
 }
 
+.sidebarLinkActive {
+  background-color: rgba(34, 211, 238, 0.08);
+  color: #22d3ee;
+  border-left: 2px solid #22d3ee;
+}
+
+/* ── Conteúdo principal ─────────────────────────────────── */
 .mainContent {
   flex: 1;
-  padding: 40px 60px;
-  max-width: 900px;
+  padding: 48px 64px;
+  max-width: 880px;
   margin: 0 auto;
 }
 
 .header {
-  margin-bottom: 50px;
-  border-bottom: 1px solid #30363d;
-  padding-bottom: 20px;
+  margin-bottom: 56px;
+  border-bottom: 1px solid #2a2e35;
+  padding-bottom: 24px;
 }
 
 .title {
-  font-size: 2.5rem;
+  font-family: var(--upz-sans), system-ui, sans-serif;
+  font-size: 2.25rem;
   font-weight: 700;
-  color: #ffffff;
-  margin-bottom: 10px;
+  letter-spacing: -0.03em;
+  color: #e0e0e0;
+  margin-bottom: 12px;
+  line-height: 1.15;
 }
 
 .subtitle {
-  font-size: 1.1rem;
-  color: #8b949e;
+  font-size: 1.05rem;
+  color: #8a9199;
+  line-height: 1.6;
 }
 
 .loading {
   text-align: center;
-  color: #8b949e;
-  font-size: 1.2rem;
+  color: #8a9199;
+  font-family: var(--upz-mono), ui-monospace, monospace;
+  font-size: 0.85rem;
   margin-top: 50px;
+  letter-spacing: 0.06em;
 }
 
 .categorySection {
-  margin-bottom: 60px;
+  margin-bottom: 56px;
 }
 
 .categoryTitle {
-  font-size: 1.6rem;
-  color: #ffffff;
-  margin-bottom: 15px;
+  font-family: var(--upz-mono), ui-monospace, monospace;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #22d3ee;
+  margin-bottom: 18px;
   padding-bottom: 10px;
-  border-bottom: 1px solid #21262d;
+  border-bottom: 1px solid #2a2e35;
 }
 
 .docCard {
-  margin-bottom: 30px;
+  margin-bottom: 28px;
   scroll-margin-top: 40px;
 }
 
 .docTitle {
-  font-size: 1.4rem;
+  font-size: 1.25rem;
   font-weight: 600;
-  color: #ffffff;
+  letter-spacing: -0.01em;
+  color: #e0e0e0;
   margin-bottom: 10px;
+  line-height: 1.3;
 }
 
+/* ── Tipografia do conteúdo ─────────────────────────────── */
 .docContent {
-  font-size: 1rem;
-  line-height: 1.6;
-  color: #c9d1d9;
+  font-size: 0.98rem;
+  line-height: 1.75;
+  color: #c6cbd2;
   white-space: pre-wrap;
 }
 
-.docContent code {
-  background-color: #21262d;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-family: monospace;
-  font-size: 0.9em;
+.docContent p {
+  margin-bottom: 14px;
+}
+
+.docContent h2 {
+  font-family: var(--upz-sans), system-ui, sans-serif;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #e0e0e0;
+  margin: 28px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #2a2e35;
+}
+
+.docContent h3 {
+  font-family: var(--upz-mono), ui-monospace, monospace;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #e0e0e0;
+  margin: 22px 0 8px;
+}
+
+.docContent h3::before {
+  content: "## ";
+  color: #22d3ee;
+}
+
+.docContent ul,
+.docContent ol {
+  margin: 0 0 14px 0;
+  padding-left: 24px;
+}
+
+.docContent li {
+  margin-bottom: 6px;
+}
+
+.docContent li::marker {
+  color: #22d3ee;
+}
+
+.docContent a {
+  color: #22d3ee;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(34, 211, 238, 0.3);
+  transition: border-color 0.15s;
+}
+
+.docContent a:hover {
+  border-bottom-color: #22d3ee;
 }
 
 .docContent strong {
-  color: #e6edf3;
+  color: #e0e0e0;
   font-weight: 600;
+}
+
+.docContent em {
+  color: #8a9199;
+}
+
+/* Código inline — terminal charcoal */
+.docContent code {
+  background-color: #20242b;
+  border: 1px solid #2a2e35;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--upz-mono), ui-monospace, monospace;
+  font-size: 0.85em;
+  color: #a5f3fc;
+}
+
+/* Blocos de código */
+.docContent pre {
+  background-color: #16181d;
+  border: 1px solid #2a2e35;
+  border-radius: 6px;
+  padding: 18px 20px;
+  overflow-x: auto;
+  margin: 18px 0;
+  line-height: 1.65;
+}
+
+.docContent pre code {
+  background-color: transparent;
+  border: none;
+  padding: 0;
+  font-size: 0.85rem;
+  color: #e0e0e0;
+  display: block;
+  white-space: pre;
+}
+
+.docContent blockquote {
+  border-left: 2px solid #22d3ee;
+  margin: 18px 0;
+  padding: 4px 0 4px 16px;
+  color: #8a9199;
+  font-style: italic;
+}
+
+.docContent hr {
+  border: none;
+  border-top: 1px solid #2a2e35;
+  margin: 28px 0;
+}
+
+/* ── Responsivo ─────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .layout {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: auto;
+    position: relative;
+    border-right: none;
+    border-bottom: 1px solid #2a2e35;
+    padding: 20px;
+  }
+
+  .mainContent {
+    padding: 32px 20px;
+  }
 }

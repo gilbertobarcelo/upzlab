@@ -1,26 +1,40 @@
 @import "tailwindcss";
 
+/* UpzLab — fontes carregadas via next/font (ver layout.tsx) */
+@theme inline {
+  --font-sans: var(--upz-sans);
+  --font-mono: var(--upz-mono);
+}
+
+/* ── Paleta "Charcoal Terminal" ─────────────────────────────
+   Inspirada na estética de terminais modernos: contraste suave,
+   nada de preto puro, acento ciano sutil (secundário do logo). */
 :root {
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-heading: 'Plus Jakarta Sans', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --upz-bg: #121212;          /* carvão — fundo principal */
+  --upz-surface: #1a1d21;     /* deep slate — sidebar, cards */
+  --upz-elevated: #20242b;    /* hover, inputs, código inline */
+  --upz-border: #2a2e35;      /* bordas finas */
+  --upz-text: #e0e0e0;        /* off-white — texto principal */
+  --upz-text-body: #c6cbd2;   /* corpo de texto */
+  --upz-text-muted: #8a9199;   /* texto secundário */
+  --upz-accent: #22d3ee;      /* ciano — acento sutil */
 }
 
 body {
-  font-family: var(--font-sans);
-  color: #ffffff;
-  background: #0a0a0a;
+  font-family: var(--upz-sans), system-ui, -apple-system, sans-serif;
+  color: var(--upz-text);
+  background: var(--upz-bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-heading), system-ui, sans-serif;
+  font-family: var(--upz-sans), system-ui, sans-serif;
   letter-spacing: -0.025em;
 }
 
 code, kbd, samp, pre, .font-mono {
-  font-family: var(--font-mono), monospace;
+  font-family: var(--upz-mono), ui-monospace, monospace;
 }
 
 @layer utilities {

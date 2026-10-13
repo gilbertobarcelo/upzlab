@@ -1,61 +1,77 @@
 import { MetadataRoute } from 'next'
 
-// URLs base
-const rawBaseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://egolpe.com';
-const BASE_URL = rawBaseUrl.replace('egolpe.com.br', 'egolpe.com').replace(/\/$/, '');
-const API_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'http://127.0.0.1:9000' : 'http://127.0.0.1:8001');
+const rawBaseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://upzlab.com';
+const BASE_URL = rawBaseUrl.replace(/\/$/, '');
+const API_URL = (process.env.UPZCONTROL_API_URL || (process.env.NODE_ENV === 'production' ? 'https://egolpe.com' : 'http://127.0.0.1:8000')).replace(/\/+$/, '');
+const HUB_SLUG = process.env.UPZCONTROL_SEO_HUB_SLUG || 'upzlab';
+const STATIC_PUBLIC_ROUTES = [
+  '/',
+  '/docs',
+  '/sdk',
+  '/sdk/api',
+  '/sdk/integracao',
+  '/sdk/integracao/react-native',
+  '/sdk/integracao/capacitor',
+  '/sdk/integracao/kotlin',
+  '/tutorial',
+  '/upzlabrouter',
+];
+
+type SeoPage = {
+  page_path?: string;
+  is_active?: boolean;
+  updated_at?: string;
+};
+
+function isPublicUpzLabPath(path: string): boolean {
+  return (
+    STATIC_PUBLIC_ROUTES.includes(path) ||
+    path.startsWith('/docs/') ||
+    path.startsWith('/docslab/')
+  );
+}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  // 1. Definimos as rotas estáticas do site
-  const staticRoutes = [
-    '',
-    '/beta',
-    '/como-funciona',
-    '/contato',
-    '/comunidade',
-    '/diferenciais',
-    '/faq',
-    '/problema',
-    '/sobre',
-    '/tecnologia',
-    '/privacidade',
-    '/termos',
-  ].map((route) => ({
-    url: `${BASE_URL}${route}`,
+  const staticRoutes = STATIC_PUBLIC_ROUTES.map((route) => ({
+    url: `${BASE_URL}${route === '/' ? '' : route}`,
     lastModified: new Date(),
     changeFrequency: 'weekly' as const,
-    priority: route === '' ? 1 : 0.8,
+    priority: route === '/' ? 1 : route.startsWith('/sdk') || route === '/upzlabrouter' ? 0.75 : 0.8,
   }));
 
-  // 2. Buscamos rotas dinâmicas do Banco (Hub "e-golpe")
   let dynamicRoutes: MetadataRoute.Sitemap = [];
   
   try {
-    // Faz a requisição para a nossa API do upzcontroll
-    const res = await fetch(`${API_URL}/api/seo/pages?hub_slug=e-golpe`, {
+    const res = await fetch(`${API_URL}/api/seo/pages?hub_slug=${encodeURIComponent(HUB_SLUG)}`, {
       next: { revalidate: 3600 } // O Next.js vai fazer cache dessa requisição por 1 hora
     });
     
     if (res.ok) {
-      const data = await res.json();
+      const data = await res.json() as { pages?: SeoPage[]; data?: SeoPage[] };
       const pages = data.pages || data.data || [];
       
       dynamicRoutes = pages
-        .filter((page: any) => page.is_active !== false)
-        .map((page: any) => {
+        .filter((page) => page.is_active !== false)
+        .map((page) => {
           let path = page.page_path || '';
           if (!path.startsWith('/') && !path.startsWith('http')) {
             path = '/' + path;
           }
-          let url = path.startsWith('http') ? path : `${BASE_URL}${path}`;
-          url = url.replace('egolpe.com.br', 'egolpe.com');
+          if (path.startsWith('http')) {
+            return null;
+          }
+          if (!isPublicUpzLabPath(path)) {
+            return null;
+          }
+          const url = path.startsWith('http') ? path : `${BASE_URL}${path}`;
           return {
             url,
             lastModified: page.updated_at ? new Date(page.updated_at) : new Date(),
             changeFrequency: 'monthly' as const,
             priority: path === '/' ? 1.0 : 0.6,
           };
-        });
+        })
+        .filter((route): route is MetadataRoute.Sitemap[number] => route !== null);
     }
   } catch (error) {
     console.error("Erro ao buscar rotas dinâmicas para o sitemap:", error);

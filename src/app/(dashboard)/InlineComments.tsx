@@ -160,14 +160,14 @@ export default function InlineComments({ post }: InlineCommentsProps) {
           rootComments.map(comment => (
             <div key={comment.id} className="space-y-3">
               <div className="flex gap-3">
-                <img src={comment.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.author_name)}&background=1e293b&color=94a3b8`} alt="Avatar" className="w-10 h-10 rounded-full border border-slate-700/50 shrink-0 object-cover mt-0.5" />
+                <img src={comment.avatar_url || "/favicon.svg"} alt="Avatar" className="w-10 h-10 rounded-full border border-slate-700/50 shrink-0 object-cover mt-0.5" />
                 <div className="flex-1">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-sm font-bold text-slate-200">{comment.author_name}</span>
                       <span className="text-xs text-slate-500">{new Date(comment.created_at).toLocaleDateString()}</span>
                     </div>
-                    <p className="text-sm text-slate-300 whitespace-pre-wrap"><TextWithMentions text={comment.body} /></p>
+                    <div className="text-sm text-slate-300 whitespace-pre-wrap"><TextWithMentions text={comment.body} /></div>
                   </div>
                   <div className="flex gap-3 mt-2">
                     <button 
@@ -194,14 +194,14 @@ export default function InlineComments({ post }: InlineCommentsProps) {
               {/* Replies */}
               {getReplies(comment.id).map(reply => (
                 <div key={reply.id} className="flex gap-3 ml-11 mt-3">
-                  <img src={reply.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(reply.author_name)}&background=0f172a&color=94a3b8`} alt="Avatar" className="w-8 h-8 rounded-full border border-slate-700/50 shrink-0 object-cover mt-0.5" />
+                  <img src={reply.avatar_url || "/favicon.svg"} alt="Avatar" className="w-8 h-8 rounded-full border border-slate-700/50 shrink-0 object-cover mt-0.5" />
                   <div className="flex-1">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-xs font-bold text-slate-300">{reply.author_name}</span>
                         <span className="text-[10px] text-slate-500">{new Date(reply.created_at).toLocaleDateString()}</span>
                       </div>
-                      <p className="text-sm text-slate-300 whitespace-pre-wrap"><TextWithMentions text={reply.body} /></p>
+                      <div className="text-sm text-slate-300 whitespace-pre-wrap"><TextWithMentions text={reply.body} /></div>
                     </div>
                   </div>
                 </div>
@@ -235,7 +235,7 @@ export default function InlineComments({ post }: InlineCommentsProps) {
                   onClick={() => insertMention(u.username)}
                   className={`w-full text-left px-3 py-2 flex items-center gap-3 transition-colors ${i === mentionIndex ? "bg-slate-800" : "hover:bg-slate-800/50"}`}
                 >
-                  <img src={u.avatar_url || "https://ui-avatars.com/api/?name="+u.name} alt="Avatar" className="w-8 h-8 rounded-full border border-slate-700 object-cover" />
+                  <img src={u.avatar_url || "/favicon.svg"} alt="Avatar" className="w-8 h-8 rounded-full border border-slate-700 object-cover" />
                   <div className="flex flex-col overflow-hidden">
                     <span className="text-sm font-bold text-white truncate">{u.name}</span>
                     <span className="text-xs font-mono text-emerald-400 truncate">{"lab/"}{u.username}</span>

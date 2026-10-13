@@ -70,7 +70,7 @@ export default function MentionTextarea({ value, onValueChange, onSubmitAction, 
                 onClick={() => insertMention(u.username)}
                 className={`w-full text-left px-3 py-2 flex items-center gap-3 transition-colors ${i === mentionIndex ? "bg-slate-800" : "hover:bg-slate-800/50"}`}
               >
-                <img src={u.avatar_url || "https://ui-avatars.com/api/?name="+u.name} alt="Avatar" className="w-8 h-8 rounded-full border border-slate-700 object-cover" />
+                <img src={u.avatar_url || "/favicon.svg"} alt="Avatar" className="w-8 h-8 rounded-full border border-slate-700 object-cover" />
                 <div className="flex flex-col overflow-hidden">
                   <span className="text-sm font-bold text-white truncate">{u.name}</span>
                   <span className="text-xs font-mono text-emerald-400 truncate">{"lab/"}{u.username}</span>

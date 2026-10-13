@@ -186,7 +186,7 @@ export default function PublicDocsLabClient({ appName, isPreview = false }: { ap
               </span>
             )}
             {appData.doc_type !== "technical" && (
-              <span style={{ display: "inline-block", fontSize: "0.75rem", padding: "2px 8px", borderRadius: 12, backgroundColor: "rgba(56,139,253,0.15)", color: "#388bfd", border: "1px solid rgba(56,139,253,0.3)" }}>
+              <span style={{ display: "inline-block", fontSize: "0.75rem", padding: "2px 8px", borderRadius: 12, backgroundColor: "rgba(34,211,238,0.12)", color: "#22d3ee", border: "1px solid rgba(34,211,238,0.3)" }}>
                 Pública
               </span>
             )}
@@ -229,7 +229,7 @@ export default function PublicDocsLabClient({ appName, isPreview = false }: { ap
             />
           </div>
         ) : (
-          <div style={{color: '#8b949e', textAlign: 'center', marginTop: '100px'}}>
+          <div style={{color: '#8a9199', textAlign: 'center', marginTop: '100px'}}>
             Selecione um tópico no menu lateral para começar a ler.
           </div>
         )}

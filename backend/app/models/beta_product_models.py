@@ -41,6 +41,7 @@ class BetaProduct(Base):
     owner_id = Column(Integer, ForeignKey("dev_tester_profiles.id"), nullable=True, index=True)
     
     name = Column(String(100), nullable=False)
+    package_id = Column(String(255), nullable=True, index=True)
     tagline = Column(String(200))          # frase curta
     description = Column(Text)            # descrição completa
     phase = Column(String(50), default="Beta Fechado")   # ex: Beta Fechado, Alpha
@@ -67,6 +68,7 @@ class BetaProduct(Base):
     
     is_founder_app = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
+    is_seed = Column(Boolean, default=False, nullable=False, index=True)
 
     # --- Promoção / Boost ---
     boost_level       = Column(Integer, default=0)        # 0=sem boost 1=feed 2=pinado 3=elite
@@ -85,6 +87,7 @@ class BetaProduct(Base):
             "slug": self.slug,
             "owner_id": self.owner_id,
             "name": self.name,
+            "package_id": self.package_id,
             "tagline": self.tagline,
             "description": self.description,
             "phase": self.phase,

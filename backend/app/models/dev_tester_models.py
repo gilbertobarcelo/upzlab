@@ -1,7 +1,7 @@
 """
 UpzLab - Dev Tester & Community Models
 """
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database.database import Base
@@ -116,7 +116,9 @@ class DevProfile(Base):
     # --- Moderação Administrativa ---
     status = Column(String(20), default="ACTIVE")   # ACTIVE, BANNED
     is_staff = Column(Boolean, default=False)        # conta oficial UpzLab
+    is_seed = Column(Boolean, default=False, nullable=False, index=True)
     cover_url = Column(String(500), nullable=True)   # foto de capa do perfil
+    timezone = Column(String(80), nullable=False, default="America/Sao_Paulo")
     
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     created_at = Column(DateTime, server_default=func.now())
@@ -177,6 +179,28 @@ class UpzPointsLedger(Base):
             "created_at": self.created_at.isoformat() if self.created_at else None
         }
 
+
+class TesterEmailInvite(Base):
+    """Email invitation owned by the developer who uploaded or entered it."""
+    __tablename__ = "dev_tester_email_invites"
+    __table_args__ = (
+        UniqueConstraint("owner_profile_id", "invited_email", name="uq_tester_invite_owner_email"),
+        UniqueConstraint("invite_code", name="uq_tester_invite_code"),
+        UniqueConstraint("invitee_user_id", name="uq_tester_invite_invitee"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    owner_profile_id = Column(Integer, ForeignKey("dev_tester_profiles.id"), nullable=False, index=True)
+    invited_email = Column(String(255), nullable=False)
+    invite_code = Column(String(64), nullable=True)
+    invitee_user_id = Column(Integer, ForeignKey("app_users.id"), nullable=True)
+    email_sent_at = Column(DateTime, nullable=True)
+    email_last_attempt_at = Column(DateTime, nullable=True)
+    email_error = Column(String(500), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    joined_at = Column(DateTime, nullable=True)
+
+
 class DevNotification(Base):
     """
     Notificações pessoais do DevTester.
@@ -202,3 +226,110 @@ class DevNotification(Base):
             "icon": self.icon,
             "color": self.color
         }
+
+
+class DailyCheckin(Base):
+    """
+    Registro de abertura diária do app do desenvolvedor para validar uso e liberar pontos.
+    """
+    __tablename__ = "dev_daily_checkins"
+    __table_args__ = (
+        UniqueConstraint("dev_profile_id", "opened_day", name="uq_daily_checkin_profile_day"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    dev_profile_id = Column(Integer, ForeignKey("dev_tester_profiles.id"), nullable=False, index=True)
+    app_id = Column(String(120), nullable=False, index=True, default="upzlab-community")
+    platform = Column(String(40), nullable=False, default="unknown")
+    session_id = Column(String(255), nullable=True)
+    timezone = Column(String(80), nullable=False, default="UTC")
+    opened_at = Column(DateTime, nullable=False, server_default=func.now())
+    opened_day = Column(String(20), nullable=False, index=True)
+    status = Column(String(20), nullable=False, default="approved")
+    points_awarded = Column(Integer, default=0)
+    alert_sent = Column(Boolean, default=False)
+    last_seen_at = Column(DateTime, nullable=False, server_default=func.now())
+    created_at = Column(DateTime, server_default=func.now())
+
+    dev_profile = relationship("DevProfile", backref="daily_checkins")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "dev_profile_id": self.dev_profile_id,
+            "app_id": self.app_id,
+            "platform": self.platform,
+            "session_id": self.session_id,
+            "timezone": self.timezone,
+            "opened_at": self.opened_at.isoformat() if self.opened_at else None,
+            "opened_day": self.opened_day,
+            "status": self.status,
+            "points_awarded": self.points_awarded,
+            "alert_sent": self.alert_sent,
+            "last_seen_at": self.last_seen_at.isoformat() if self.last_seen_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class DailyCheckinAlert(Base):
+    """
+    Alertas de compliance diário enviados ao dev quando ele não abriu o app na janela esperada.
+    """
+    __tablename__ = "dev_daily_checkin_alerts"
+    __table_args__ = (
+        UniqueConstraint("dev_profile_id", "alert_day", name="uq_daily_alert_profile_day"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    dev_profile_id = Column(Integer, ForeignKey("dev_tester_profiles.id"), nullable=False, index=True)
+    app_id = Column(String(120), nullable=False, default="upzlab-community")
+    alert_day = Column(String(20), nullable=False, index=True)
+    alert_type = Column(String(30), nullable=False, default="warning")
+    message = Column(String(500), nullable=False)
+    is_resolved = Column(Boolean, default=False)
+    email_last_attempt_at = Column(DateTime, nullable=True)
+    email_sent_at = Column(DateTime, nullable=True)
+    email_error = Column(String(500), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+    resolved_at = Column(DateTime, nullable=True)
+
+    dev_profile = relationship("DevProfile", backref="daily_checkin_alerts")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "dev_profile_id": self.dev_profile_id,
+            "app_id": self.app_id,
+            "alert_type": self.alert_type,
+            "message": self.message,
+            "is_resolved": self.is_resolved,
+            "email_sent_at": self.email_sent_at.isoformat() if self.email_sent_at else None,
+            "email_error": self.email_error,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "resolved_at": self.resolved_at.isoformat() if self.resolved_at else None,
+        }
+
+
+class SdkAppCheckin(Base):
+    """App-specific foreground activity, separate from the account's daily reward."""
+    __tablename__ = "dev_sdk_app_checkins"
+    __table_args__ = (
+        UniqueConstraint(
+            "dev_profile_id",
+            "app_id",
+            "opened_day",
+            name="uq_sdk_app_checkin_profile_app_day",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    dev_profile_id = Column(Integer, ForeignKey("dev_tester_profiles.id"), nullable=False, index=True)
+    app_id = Column(String(255), nullable=False, index=True)
+    platform = Column(String(40), nullable=False, default="unknown")
+    session_id = Column(String(255), nullable=True)
+    timezone = Column(String(80), nullable=False, default="UTC")
+    opened_at = Column(DateTime, nullable=False, server_default=func.now())
+    opened_day = Column(String(20), nullable=False, index=True)
+    points_awarded = Column(Integer, nullable=False, default=0)
+    last_seen_at = Column(DateTime, nullable=False, server_default=func.now())
+    created_at = Column(DateTime, server_default=func.now())

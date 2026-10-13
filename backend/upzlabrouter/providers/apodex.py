@@ -46,19 +46,34 @@ class ApodexProvider(BaseProvider):
         if res.status_code not in (200, 201):
             raise RouterProviderError("apodex", f"HTTP {res.status_code}: {res.text[:200]}")
 
-        body = res.json()
+        try:
+            body = res.json()
+        except ValueError as exc:
+            raise RouterProviderError("apodex", "Resposta JSON inválida do provedor.") from exc
 
-        # Formato OpenAI
-        choice  = body.get("choices", [{}])[0]
-        content = choice.get("message", {}).get("content", "")
-        usage   = body.get("usage", {})
+        choices = body.get("choices") if isinstance(body, dict) else None
+        if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+            raise RouterProviderError("apodex", "Resposta sem choices válidos.")
+        message = choices[0].get("message")
+        if not isinstance(message, dict) or not isinstance(message.get("content"), str):
+            raise RouterProviderError("apodex", "Resposta sem conteúdo de mensagem válido.")
+        content = message["content"]
+        usage = body.get("usage", {})
+        if not isinstance(usage, dict):
+            usage = {}
+        prompt_tokens = usage.get("prompt_tokens", 0)
+        completion_tokens = usage.get("completion_tokens", 0)
+        if not isinstance(prompt_tokens, int) or prompt_tokens < 0:
+            prompt_tokens = 0
+        if not isinstance(completion_tokens, int) or completion_tokens < 0:
+            completion_tokens = 0
 
         return ChatResponse(
             content=content,
             model=body.get("model", request.model),
             provider=self.provider_id,
-            prompt_tokens=usage.get("prompt_tokens", 0),
-            completion_tokens=usage.get("completion_tokens", 0),
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
             latency_ms=latency_ms,
             raw=body,
         )
@@ -72,5 +87,5 @@ class ApodexProvider(BaseProvider):
                 timeout=10,
             )
             return res.status_code in (200, 201)
-        except Exception:
+        except requests.exceptions.RequestException:
             return False

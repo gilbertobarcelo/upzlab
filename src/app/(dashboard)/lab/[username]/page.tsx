@@ -76,6 +76,42 @@ export default function ComunidadePerfilPage() {
     }
   }, [activeTab, devUser?.id, isOwnProfile, publicProfile?.id]);
 
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [showAvatarMenu, setShowAvatarMenu] = useState(false);
+
+  const postAvatar = async (path: string, body?: FormData) => {
+    const t = getToken();
+    const res = await fetch(`${API_BASE}/api/dev/auth/profile/${path}`, {
+      method: "POST",
+      headers: t ? { Authorization: `Bearer ${t}` } : {},
+      body,
+    });
+    if (res.ok) await refreshDevUser();
+    else {
+      const j = await res.json().catch(() => null);
+      alert(j?.detail || "Não foi possível atualizar a foto.");
+    }
+  };
+
+  const handleAvatarFile = async (file: File) => {
+    setShowAvatarMenu(false);
+    const fd = new FormData();
+    fd.append("avatar", file);
+    await postAvatar("avatar", fd);
+  };
+
+  const handleUseGithubAvatar = async () => {
+    setShowAvatarMenu(false);
+    const t = getToken();
+    if (!devUser?.github_connected) {
+      if (t && confirm("Conectar o GitHub para usar sua foto de perfil?")) {
+        window.location.href = `${API_BASE}/api/dev/auth/github/login?action=connect&token=${t}`;
+      }
+      return;
+    }
+    await postAvatar("github-avatar");
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -192,24 +228,29 @@ export default function ComunidadePerfilPage() {
 
             {/* Avatar */}
             <div className="absolute -top-12 md:-top-14 p-1 bg-[#0A0E1A] rounded-full inline-block group/avatar cursor-pointer">
-              {targetUser.avatarUrl
-                ? <img src={targetUser.avatarUrl} alt="Avatar" className={`w-20 h-20 md:w-24 md:h-24 rounded-full border-2 object-cover ${isStaff ? "border-emerald-500" : "border-slate-700"}`} />
-                : <div className={`w-20 h-20 md:w-24 md:h-24 rounded-full border-2 flex items-center justify-center font-black text-2xl font-mono ${isStaff ? "bg-emerald-900/40 border-emerald-500/60 text-emerald-400" : "bg-slate-800 border-slate-700 text-emerald-400"}`}>
-                    {isStaff
-                      ? <svg className="w-10 h-10 md:w-12 md:h-12" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-                      : getInitials(targetUser.name)
-                    }
-                  </div>
-              }
+              <img src={targetUser.avatarUrl || "/favicon.svg"} alt="Avatar" className={`w-20 h-20 md:w-24 md:h-24 rounded-full border-2 object-cover bg-[#0d0d0d] ${isStaff ? "border-emerald-500" : "border-slate-700"}`} />
               {isOwnProfile && (
                 <div className="absolute inset-0 m-1 rounded-full bg-black/0 group-hover/avatar:bg-black/50 transition-all flex items-center justify-center"
-                  onClick={() => alert("Conecte o GitHub para usar sua foto automaticamente.")}>
+                  onClick={() => setShowAvatarMenu(v => !v)}>
                   <svg className="w-6 h-6 text-white opacity-0 group-hover/avatar:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </div>
               )}
+              {isOwnProfile && showAvatarMenu && (
+                <div className="absolute left-0 top-full mt-2 z-30 w-56 rounded-xl bg-[#0F1629] border border-slate-700 shadow-xl p-1 text-sm text-slate-200" onClick={e => e.stopPropagation()}>
+                  <button className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800" onClick={() => avatarInputRef.current?.click()}>Enviar do computador</button>
+                  <button className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800" onClick={handleUseGithubAvatar}>
+                    {devUser?.github_connected ? "Usar foto do GitHub" : "Conectar GitHub e usar foto"}
+                  </button>
+                  {devUser?.is_staff && (
+                    <button className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-800" onClick={async () => { setShowAvatarMenu(false); await postAvatar("avatar/official"); }}>Usar ícone oficial UpzLab</button>
+                  )}
+                </div>
+              )}
+              <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleAvatarFile(f); e.target.value = ""; }} />
             </div>
 
             {/* Cabeçalho do Perfil (Nome, Medalhas, Integrações) */}
@@ -273,7 +314,7 @@ export default function ComunidadePerfilPage() {
 
                 {/* Direita: Integrações */}
                 <div className="flex items-center gap-1.5 ml-auto">
-                  {!targetUser.github_account_age_days ? (
+                  {!(targetUser.github_connected || targetUser.github_account_age_days) ? (
                     isOwnProfile && (
                       <button onClick={() => { const t = getToken(); if (t) window.location.href = `${API_BASE}/api/dev/auth/github/login?action=connect&token=${t}`; }}
                         title="Conectar GitHub" className="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 flex items-center justify-center border border-slate-600 transition-colors">

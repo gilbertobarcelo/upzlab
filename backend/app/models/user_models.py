@@ -17,5 +17,6 @@ class AppUser(Base):
     
     email_verified = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
+    is_seed = Column(Boolean, default=False, nullable=False, index=True)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())

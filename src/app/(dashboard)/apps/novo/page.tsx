@@ -66,11 +66,10 @@ export default function CriarCampanhaPage() {
 
       const json = await res.json();
       
-      if (json.success) {
-        // Redireciona para o Feed
-        router.push("/");
+      if (res.ok && json.success && json.app_id) {
+        router.push(`/studio/${json.app_id}/sdk`);
       } else {
-        setModalMessage(json.message);
+        setModalMessage(json.detail || json.message || "Não foi possível cadastrar o app.");
         setIsSubmitting(false);
       }
     } catch (err) {
@@ -295,7 +294,7 @@ export default function CriarCampanhaPage() {
 
         <div className="flex w-full md:w-auto gap-3 justify-end pt-4">
           <Link 
-            href="/"
+            href="/comunidade"
             className="flex-1 md:flex-none text-center px-6 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm transition-all"
           >
             Cancelar

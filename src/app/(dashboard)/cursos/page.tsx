@@ -1,45 +1,116 @@
-import React from 'react';
+"use client";
+
+import React, { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import Avatar from "@/components/Avatar";
+import { api } from "@/lib/communityApi";
 
 export default function CursosPage() {
+  const router = useRouter();
+  const [meta, setMeta] = useState<any>({ categories: [], levels: [] });
+  const [scope, setScope] = useState("all");
+  const [category, setCategory] = useState("all");
+  const [q, setQ] = useState("");
+  const [query, setQuery] = useState("");
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ title: "", description: "", category: "qa", level: "iniciante" });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => { api("/courses/meta").then(setMeta).catch(() => {}); }, []);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const p = new URLSearchParams({ scope, category });
+      if (query) p.set("q", query);
+      setItems((await api(`/courses?${p}`)).items);
+    } catch { setItems([]); }
+    setLoading(false);
+  }, [scope, category, query]);
+  useEffect(() => { load(); }, [load]);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true); setError("");
+    try {
+      const c = await api("/courses", { method: "POST", body: JSON.stringify(form) });
+      router.push(`/cursos/${c.id}`);
+    } catch (err: any) { setError(err.message); }
+    setSaving(false);
+  };
+
+  const input = "w-full rounded-xl bg-[#0A0E1A] border border-slate-700 px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-white";
+  const chip = (on: boolean) => `px-3 py-1.5 rounded-lg text-xs font-bold border transition ${on ? "bg-white text-black border-white" : "border-slate-700 text-slate-300 hover:border-slate-500"}`;
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="bg-[#131D33]/90 border border-slate-800 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between shadow-xl backdrop-blur-xl">
+    <div className="max-w-4xl mx-auto space-y-5">
+      <div className="bg-[#131D33]/90 border border-slate-800 rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-white flex items-center gap-3">
-            <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5l4-2.222" /></svg>
-            Cursos & Masterclass
-          </h1>
-          <p className="text-sm font-mono text-slate-400 mt-1">
-            Gaste seus UpzPoints para desbloquear cursos avançados de QA, CyberSecurity, e Engenharia de Software.
-          </p>
+          <h1 className="text-2xl font-black text-white">Cursos & Masterclass</h1>
+          <p className="text-sm font-mono text-slate-400 mt-1">Aprenda com a comunidade ou ensine o que você sabe. Matricule-se e acompanhe seu progresso aula a aula.</p>
         </div>
+        <button onClick={() => setOpen(true)} className="px-5 py-2.5 rounded-xl bg-white text-black font-bold text-sm hover:bg-slate-200 transition shrink-0">Criar curso</button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-[#131D33]/40 border border-slate-800 rounded-2xl p-6 backdrop-blur-xl relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-3">
-             <span className="px-3 py-1 bg-blue-500/20 text-blue-400 font-mono font-bold text-[10px] uppercase rounded border border-blue-500/30">Lançamento em Breve</span>
-          </div>
-          <div className="w-12 h-12 bg-slate-900 border border-slate-700 rounded-xl flex items-center justify-center mb-4">
-            <svg className="w-6 h-6 text-slate-400 group-hover:text-blue-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
-          </div>
-          <h3 className="text-lg font-bold text-white mb-2">Introdução a QA e Testes Automatizados</h3>
-          <p className="text-sm text-slate-400 mb-4">Aprenda a criar relatórios de bugs matadores e a utilizar ferramentas como Cypress e Jest.</p>
-          <div className="text-emerald-400 font-mono font-bold text-sm">~ 5.000 UpzPoints</div>
-        </div>
-
-        <div className="bg-[#131D33]/40 border border-slate-800 rounded-2xl p-6 backdrop-blur-xl relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-3">
-             <span className="px-3 py-1 bg-purple-500/20 text-purple-400 font-mono font-bold text-[10px] uppercase rounded border border-purple-500/30">Em Gravação</span>
-          </div>
-          <div className="w-12 h-12 bg-slate-900 border border-slate-700 rounded-xl flex items-center justify-center mb-4">
-            <svg className="w-6 h-6 text-slate-400 group-hover:text-purple-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-          </div>
-          <h3 className="text-lg font-bold text-white mb-2">Fundamentos de Ethical Hacking</h3>
-          <p className="text-sm text-slate-400 mb-4">Entenda as falhas mais comuns em apps mobile e web, do OWASP Top 10 à engenharia reversa.</p>
-          <div className="text-emerald-400 font-mono font-bold text-sm">~ 15.000 UpzPoints</div>
-        </div>
+      <form onSubmit={(e) => { e.preventDefault(); setQuery(q.trim()); }} className="flex gap-2">
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar cursos..." className={input} />
+        <button className="px-4 rounded-xl bg-white text-black text-sm font-bold">Buscar</button>
+      </form>
+      <div className="flex flex-wrap gap-2">
+        {[["all", "Todos"], ["enrolled", "Meus estudos"], ["mine", "Criados por mim"]].map(([k, l]) => <button key={k} onClick={() => setScope(k)} className={chip(scope === k)}>{l}</button>)}
+        <span className="w-px bg-slate-700 mx-1" />
+        {[{ key: "all", label: "Todas categorias" }, ...meta.categories].map((c: any) => <button key={c.key} onClick={() => setCategory(c.key)} className={chip(category === c.key)}>{c.label}</button>)}
       </div>
+
+      {loading ? <p className="text-center text-slate-500 font-mono text-sm py-12">Carregando...</p>
+        : items.length === 0 ? (
+          <div className="bg-[#0A0E1A] border border-slate-800 border-dashed rounded-2xl p-12 text-center">
+            <p className="text-white font-bold mb-1">Nenhum curso por aqui</p>
+            <p className="text-slate-400 text-sm font-mono">Crie o primeiro curso da comunidade.</p>
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 gap-3">
+            {items.map((c) => (
+              <Link key={c.id} href={`/cursos/${c.id}`} className="flex flex-col bg-[#131D33]/70 border border-slate-800 hover:border-slate-600 rounded-2xl p-5 transition">
+                <div className="flex gap-2 text-[11px] font-mono mb-2">
+                  <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300">{c.category_label}</span>
+                  <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300">{c.level_label}</span>
+                  {!c.is_published && <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold">RASCUNHO</span>}
+                </div>
+                <h2 className="text-lg font-bold text-white">{c.title}</h2>
+                <p className="text-sm text-slate-400 mt-1 line-clamp-3 flex-1">{c.description}</p>
+                <div className="flex items-center justify-between mt-4 text-[11px] font-mono text-slate-500">
+                  <span className="flex items-center gap-1.5"><Avatar name={c.author.name} url={c.author.avatar_url} size={4} />{c.author.name}</span>
+                  <span>{c.lesson_count} aulas · {c.enrolled_count} alunos</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+
+      {open && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
+          <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="w-full max-w-xl bg-[#131D33] border border-slate-700 rounded-2xl p-6 space-y-3">
+            <h2 className="text-lg font-black text-white">Criar curso</h2>
+            <input required minLength={5} maxLength={200} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Título do curso" className={input} />
+            <textarea required minLength={20} rows={5} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="O que o aluno vai aprender?" className={input} />
+            <div className="grid grid-cols-2 gap-3">
+              <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className={input}>{meta.categories.map((c: any) => <option key={c.key} value={c.key}>{c.label}</option>)}</select>
+              <select value={form.level} onChange={(e) => setForm({ ...form, level: e.target.value })} className={input}>{meta.levels.map((c: any) => <option key={c.key} value={c.key}>{c.label}</option>)}</select>
+            </div>
+            <p className="text-[11px] text-slate-500 font-mono">O curso começa como rascunho. Adicione as aulas e publique quando estiver pronto.</p>
+            {error && <p className="text-rose-400 text-xs">{error}</p>}
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setOpen(false)} className="px-4 py-2 rounded-xl text-sm text-slate-300 hover:text-white">Cancelar</button>
+              <button disabled={saving} className="px-5 py-2 rounded-xl bg-white text-black text-sm font-bold disabled:opacity-50">{saving ? "Criando..." : "Criar curso"}</button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,38 +1,49 @@
 import type { Metadata } from "next";
 
-const BASE_URL = "https://egolpe.com";
-const API_URL =
-  process.env.INTERNAL_API_URL ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  (process.env.NODE_ENV === "production"
-    ? "http://127.0.0.1:9000"
-    : "http://127.0.0.1:8001");
+const BASE_URL = (process.env.NEXT_PUBLIC_BASE_URL || "https://upzlab.com").replace(/\/+$/, "");
+const SEO_API_URL = (
+  process.env.UPZCONTROL_API_URL ||
+  (process.env.NODE_ENV === "production" ? "https://egolpe.com" : "http://127.0.0.1:8000")
+).replace(/\/+$/, "");
+const SEO_HUB_SLUG = process.env.UPZCONTROL_SEO_HUB_SLUG || "upzlab";
+
+type SeoPage = {
+  meta_title?: string;
+  meta_description?: string;
+  meta_keywords?: string;
+  og_title?: string;
+  og_description?: string;
+  og_image?: string;
+  og_type?: string;
+  twitter_card?: string;
+  twitter_title?: string;
+  twitter_description?: string;
+  canonical_url?: string;
+  robots?: string;
+  schema_json?: string;
+  facebook_pixel_id?: string;
+};
 
 export async function getSeoMetadata(path: string = "/"): Promise<Metadata> {
   const normalizedPath = path === "" ? "/" : path;
   const pageUrl = `${BASE_URL}${normalizedPath === "/" ? "" : normalizedPath}`;
   const defaultImageUrl = `${BASE_URL}/seo/default_banner.png`;
 
-  const fallbackTitle = "É Golpe | Tecnologia Brasileira Anti-Golpes Telefônicos";
+  const fallbackTitle = "UpzLab | Comunidade e ferramentas para desenvolvedores";
   const fallbackDescription =
-    "Proteja você e sua família contra chamadas falsas e números clonados com a Inteligência Artificial gratuita do É Golpe.";
+    "Uma comunidade para desenvolvedores criarem, testarem e evoluírem com ferramentas e projetos reais.";
 
   const defaultMetadata: Metadata = {
     metadataBase: new URL(BASE_URL),
     title: fallbackTitle,
     description: fallbackDescription,
     keywords: [
-      "segurança",
-      "anti-golpe",
-      "bloqueador de chamadas",
-      "É Golpe",
-      "inteligência artificial",
+      "UpzLab",
+      "desenvolvedores",
+      "comunidade de tecnologia",
+      "testes de aplicativos",
+      "ferramentas para desenvolvedores",
     ],
-    icons: {
-      icon: "/favicon.png",
-      shortcut: "/favicon.png",
-      apple: "/favicon.png",
-    },
     alternates: {
       canonical: pageUrl,
     },
@@ -40,7 +51,7 @@ export async function getSeoMetadata(path: string = "/"): Promise<Metadata> {
       title: fallbackTitle,
       description: fallbackDescription,
       url: pageUrl,
-      siteName: "É Golpe",
+      siteName: "UpzLab",
       images: [
         {
           url: defaultImageUrl,
@@ -64,7 +75,7 @@ export async function getSeoMetadata(path: string = "/"): Promise<Metadata> {
   try {
     const encodedPath = encodeURIComponent(normalizedPath);
     const res = await fetch(
-      `${API_URL}/api/seo/page?path=${encodedPath}&hub_slug=e-golpe`,
+      `${SEO_API_URL}/api/seo/page?path=${encodedPath}&hub_slug=${encodeURIComponent(SEO_HUB_SLUG)}`,
       {
         next: { revalidate: 60 },
       }
@@ -74,15 +85,15 @@ export async function getSeoMetadata(path: string = "/"): Promise<Metadata> {
       return defaultMetadata;
     }
 
-    const json = await res.json();
-    const seo = json.data || (json.hub_slug ? json : null);
+    const json = await res.json() as { data?: SeoPage; hub_slug?: string };
+    const seo = json.data || (json.hub_slug ? json as SeoPage : null);
 
     if (seo) {
-      let rawImage = (seo.og_image || "/seo/default_banner.png").replace(
+      const rawImage = (seo.og_image || "/seo/default_banner.png").replace(
         /egolpe\.com\.br/g,
         "egolpe.com"
       );
-      let imageUrl = rawImage.startsWith("http")
+      const imageUrl = rawImage.startsWith("http")
         ? rawImage
         : `${BASE_URL}${rawImage.startsWith("/") ? "" : "/"}${rawImage}`;
 
@@ -101,7 +112,11 @@ export async function getSeoMetadata(path: string = "/"): Promise<Metadata> {
         keywords: seo.meta_keywords
           ? seo.meta_keywords.split(",")
           : defaultMetadata.keywords,
-        icons: defaultMetadata.icons,
+        icons: {
+          icon: [{ url: "/favicon.svg?v=5", type: "image/svg+xml" }],
+          shortcut: "/favicon.svg?v=5",
+          apple: "/favicon.svg?v=5",
+        },
         alternates: {
           canonical: canonicalUrl,
         },
@@ -109,7 +124,7 @@ export async function getSeoMetadata(path: string = "/"): Promise<Metadata> {
           title: ogTitle,
           description: ogDescription,
           url: canonicalUrl,
-          siteName: "É Golpe",
+          siteName: "UpzLab",
           images: [
             {
               url: imageUrl,
@@ -120,17 +135,23 @@ export async function getSeoMetadata(path: string = "/"): Promise<Metadata> {
             },
           ],
           locale: "pt_BR",
-          type: (seo.og_type as any) || "website",
+          type: seo.og_type === "article" || seo.og_type === "book" || seo.og_type === "profile"
+            ? seo.og_type
+            : "website",
         },
         twitter: {
-          card: (seo.twitter_card as any) || "summary_large_image",
+          card: seo.twitter_card === "summary" ? "summary" : "summary_large_image",
           title: seo.twitter_title || ogTitle,
           description: seo.twitter_description || ogDescription,
           images: [imageUrl],
         },
-        other: seo.facebook_pixel_id
-          ? { "fb:app_id": seo.facebook_pixel_id }
-          : {},
+        robots: seo.robots
+          ? { index: !seo.robots.toLowerCase().includes("noindex"), follow: !seo.robots.toLowerCase().includes("nofollow") }
+          : undefined,
+        other: {
+          ...(seo.facebook_pixel_id ? { "fb:app_id": seo.facebook_pixel_id } : {}),
+          ...(seo.schema_json ? { "upzlab:schema_json": seo.schema_json } : {}),
+        },
       };
     }
   } catch (error) {
