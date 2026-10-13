@@ -37,3 +37,12 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Agendamento de posts (SEO engine → Postiz)
+
+O SEO engine envia `POST /api/social/schedule` com o header `x-webhook-secret` e o corpo
+`{ "content": "...", "scheduled_at": "2026-11-01T14:00:00Z", "integration_ids": ["opcional"] }`.
+O post é criado como **agendado** no [Postiz](https://postiz.com) (Public API).
+
+Variáveis de ambiente: `POSTIZ_API_KEY`, `POSTIZ_API_URL` (padrão `https://api.postiz.com/public/v1`; use `https://SEU_HOST/api/public/v1` se self-hosted),
+`POSTIZ_INTEGRATION_IDS` (canais padrão, separados por vírgula) e `SEO_ENGINE_WEBHOOK_SECRET`.
