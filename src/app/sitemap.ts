@@ -52,26 +52,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       
       dynamicRoutes = pages
         .filter((page) => page.is_active !== false)
-        .map((page) => {
+        .flatMap((page): MetadataRoute.Sitemap => {
           let path = page.page_path || '';
           if (!path.startsWith('/') && !path.startsWith('http')) {
             path = '/' + path;
           }
           if (path.startsWith('http')) {
-            return null;
+            return [];
           }
           if (!isPublicUpzLabPath(path)) {
-            return null;
+            return [];
           }
           const url = path.startsWith('http') ? path : `${BASE_URL}${path}`;
-          return {
+          return [{
             url,
             lastModified: page.updated_at ? new Date(page.updated_at) : new Date(),
             changeFrequency: 'monthly' as const,
             priority: path === '/' ? 1.0 : 0.6,
-          };
-        })
-        .filter((route): route is MetadataRoute.Sitemap[number] => route !== null);
+          }];
+        });
     }
   } catch (error) {
     console.error("Erro ao buscar rotas dinâmicas para o sitemap:", error);
