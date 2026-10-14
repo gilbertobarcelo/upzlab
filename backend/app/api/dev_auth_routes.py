@@ -1746,8 +1746,138 @@ async def get_my_apps_testers(request: Request, db: Session = Depends(get_db)):
     }
 
 
+_GITHUB_EXPERIENCE_CACHE: dict = {}
+_GITHUB_EXPERIENCE_TTL = 3600
+
+
+def _fetch_github_experience(login: str) -> Optional[dict]:
+    """Experiência pública do dev no GitHub (cache de 1h para respeitar o rate limit)."""
+    import time
+    import requests
+    from collections import Counter
+
+    cached = _GITHUB_EXPERIENCE_CACHE.get(login.lower())
+    if cached and time.time() - cached[0] < _GITHUB_EXPERIENCE_TTL:
+        return cached[1]
+
+    try:
+        user_res = requests.get(f"https://api.github.com/users/{login}", timeout=8)
+        if user_res.status_code != 200:
+            return cached[1] if cached else None
+        user = user_res.json()
+        repos_res = requests.get(
+            f"https://api.github.com/users/{login}/repos?per_page=100&sort=pushed", timeout=8
+        )
+        repos = repos_res.json() if repos_res.status_code == 200 else []
+    except Exception as e:
+        print(f"Erro ao buscar experiência no GitHub: {e}")
+        return cached[1] if cached else None
+
+    own = [r for r in repos if not r.get("fork")]
+    lang_count = Counter(r.get("language") for r in own if r.get("language"))
+    total_lang = sum(lang_count.values()) or 1
+    top_repos = sorted(own, key=lambda r: (r.get("stargazers_count", 0), r.get("pushed_at") or ""), reverse=True)[:6]
+
+    created = (user.get("created_at") or "")[:10]
+    years = 0
+    if created:
+        try:
+            years = max(datetime.utcnow().year - int(created[:4]), 0)
+        except ValueError:
+            years = 0
+
+    data = {
+        "login": user.get("login"),
+        "url": user.get("html_url"),
+        "company": user.get("company"),
+        "location": user.get("location"),
+        "member_since": created,
+        "years": years,
+        "public_repos": user.get("public_repos", 0),
+        "followers": user.get("followers", 0),
+        "stars": sum(r.get("stargazers_count", 0) for r in own),
+        "languages": [
+            {"name": name, "percent": round(count * 100 / total_lang)}
+            for name, count in lang_count.most_common(6)
+        ],
+    }
+    _GITHUB_EXPERIENCE_CACHE[login.lower()] = (time.time(), data)
+    return data
+
+
+@router.get("/public/{username}/overview")
+def get_public_overview(username: str, request: Request, db: Session = Depends(get_db)):
+    if not _get_user_id_optional(request):
+        raise HTTPException(status_code=401, detail="Entre na sua conta para ver perfis.")
+    """Visão geral do perfil: experiência GitHub, apps testados e conquistas."""
+    from app.models.beta_product_models import BetaProduct, ProjectFollower
+
+    profile = db.query(DevProfile).filter(DevProfile.username == username).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    rows = (
+        db.query(BetaProduct)
+        .join(ProjectFollower, ProjectFollower.product_id == BetaProduct.id)
+        .filter(ProjectFollower.dev_profile_id == profile.id)
+        .order_by(ProjectFollower.created_at.desc())
+        .limit(50)
+        .all()
+    )
+    tested_apps = [
+        {"id": a.id, "slug": a.slug, "name": a.name, "category": a.category, "icon": a.icon_url or ""}
+        for a in rows
+    ]
+
+    github = _fetch_github_experience(profile.github_username) if profile.github_username else None
+
+    if github and profile.is_staff:
+        github = {**github, "login": None, "url": None, "company": None, "location": None}
+
+    try:
+        certs = json.loads(profile.certificates or "[]")
+    except Exception:
+        certs = []
+
+    feedbacks = profile.feedbacks_sent or 0
+    bugs = profile.bugs_reported or 0
+    points = profile.points or 0
+    milestones = [
+        ("github", "GitHub conectado", "Conectou o GitHub ao perfil.", bool(profile.github_username)),
+        ("tester", "Primeiro app testado", "Entrou como testador em um app.", len(tested_apps) >= 1),
+        ("tester5", "Testador frequente", "Testou 5 apps.", len(tested_apps) >= 5),
+        ("feedback", "Primeiro feedback", "Enviou o primeiro feedback.", feedbacks >= 1),
+        ("feedback10", "Voz da comunidade", "Enviou 10 feedbacks.", feedbacks >= 10),
+        ("bug", "Caçador de bugs", "Reportou o primeiro bug.", bugs >= 1),
+        ("bug10", "Bug Hunter", "Reportou 10 bugs.", bugs >= 10),
+        ("pts100", "100 UpzPoints", "Alcançou 100 pontos.", points >= 100),
+        ("pts1000", "1.000 UpzPoints", "Alcançou 1.000 pontos.", points >= 1000),
+    ]
+    achievements = [
+        {"id": i, "title": t, "description": d, "unlocked": u} for i, t, d, u in milestones
+    ] + [
+        {"id": f"cert-{n}", "title": str(n), "description": "Certificado conquistado.", "unlocked": True}
+        for n in certs
+    ]
+
+    return {
+        "success": True,
+        "data": {
+            "level": profile.egolpe_level,
+            "points": points,
+            "feedbacks": feedbacks,
+            "bugs": bugs,
+            "github": github,
+            "tested_apps": tested_apps,
+            "achievements": achievements,
+        },
+    }
+
+
 @router.get("/public/{username}")
-def get_public_profile(username: str, db: Session = Depends(get_db)):
+def get_public_profile(username: str, request: Request, db: Session = Depends(get_db)):
+    if not _get_user_id_optional(request):
+        raise HTTPException(status_code=401, detail="Entre na sua conta para ver perfis.")
     profile = db.query(DevProfile).filter(DevProfile.username == username).first()
     if not profile:
         raise HTTPException(status_code=404, detail="User not found")

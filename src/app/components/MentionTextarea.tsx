@@ -14,7 +14,7 @@ export default function MentionTextarea({ value, onValueChange, onSubmitAction, 
   useEffect(() => {
     if (mentionQuery !== null && mentionQuery.length > 0) {
       const delay = setTimeout(() => {
-        fetch(`http://localhost:8001/api/upzlab/mentions/users?q=${mentionQuery}`)
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'}/api/upzlab/mentions/users?q=${encodeURIComponent(mentionQuery)}`)
           .then(r => r.json())
           .then(d => {
             if (d.success) setMentionResults(d.data);
@@ -31,7 +31,7 @@ export default function MentionTextarea({ value, onValueChange, onSubmitAction, 
     onValueChange(val);
     
     // Procura por "lab/" no cursor
-    const match = val.match(/(?:^|\s)lab\/([a-z0-9_\.]*)$/);
+    const match = val.match(/(?:^|\s)(?:@|lab\/)([a-zA-Z0-9_\.]*)$/);
     if (match) {
       setMentionQuery(match[1]);
       setMentionIndex(0);
@@ -43,10 +43,10 @@ export default function MentionTextarea({ value, onValueChange, onSubmitAction, 
   const insertMention = (username: string) => {
     if (!textareaRef.current) return;
     const val = value as string;
-    const match = val.match(/(?:^|\s)lab\/([a-z0-9_\.]*)$/);
+    const match = val.match(/(?:^|\s)(?:@|lab\/)([a-zA-Z0-9_\.]*)$/);
     if (match) {
-      const before = val.substring(0, match.index! + (match[0].startsWith(' ') ? 1 : 0));
-      const newText = before + `lab/${username} `;
+      const before = val.substring(0, match.index! + (/^\s/.test(match[0]) ? 1 : 0));
+      const newText = before + `@${username} `;
       onValueChange(newText);
       setMentionQuery(null);
       setMentionResults([]);
@@ -70,10 +70,10 @@ export default function MentionTextarea({ value, onValueChange, onSubmitAction, 
                 onClick={() => insertMention(u.username)}
                 className={`w-full text-left px-3 py-2 flex items-center gap-3 transition-colors ${i === mentionIndex ? "bg-slate-800" : "hover:bg-slate-800/50"}`}
               >
-                <img src={u.avatar_url || "/favicon.svg"} alt="Avatar" className="w-8 h-8 rounded-full border border-slate-700 object-cover" />
+                <img src={u.avatar_url || "/favicon.svg?v=5"} alt="Avatar" className="w-8 h-8 rounded-full border border-slate-700 object-cover" />
                 <div className="flex flex-col overflow-hidden">
                   <span className="text-sm font-bold text-white truncate">{u.name}</span>
-                  <span className="text-xs font-mono text-emerald-400 truncate">{"lab/"}{u.username}</span>
+                  <span className="text-xs font-mono text-emerald-400 truncate">@{u.username}</span>
                 </div>
               </button>
             ))}

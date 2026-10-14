@@ -160,7 +160,7 @@ export default function InlineComments({ post }: InlineCommentsProps) {
           rootComments.map(comment => (
             <div key={comment.id} className="space-y-3">
               <div className="flex gap-3">
-                <img src={comment.avatar_url || "/favicon.svg"} alt="Avatar" className="w-10 h-10 rounded-full border border-slate-700/50 shrink-0 object-cover mt-0.5" />
+                <img src={comment.avatar_url || "/favicon.svg?v=5"} alt="Avatar" className="w-10 h-10 rounded-full border border-slate-700/50 shrink-0 object-cover mt-0.5" />
                 <div className="flex-1">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
@@ -194,7 +194,7 @@ export default function InlineComments({ post }: InlineCommentsProps) {
               {/* Replies */}
               {getReplies(comment.id).map(reply => (
                 <div key={reply.id} className="flex gap-3 ml-11 mt-3">
-                  <img src={reply.avatar_url || "/favicon.svg"} alt="Avatar" className="w-8 h-8 rounded-full border border-slate-700/50 shrink-0 object-cover mt-0.5" />
+                  <img src={reply.avatar_url || "/favicon.svg?v=5"} alt="Avatar" className="w-8 h-8 rounded-full border border-slate-700/50 shrink-0 object-cover mt-0.5" />
                   <div className="flex-1">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
@@ -235,7 +235,7 @@ export default function InlineComments({ post }: InlineCommentsProps) {
                   onClick={() => insertMention(u.username)}
                   className={`w-full text-left px-3 py-2 flex items-center gap-3 transition-colors ${i === mentionIndex ? "bg-slate-800" : "hover:bg-slate-800/50"}`}
                 >
-                  <img src={u.avatar_url || "/favicon.svg"} alt="Avatar" className="w-8 h-8 rounded-full border border-slate-700 object-cover" />
+                  <img src={u.avatar_url || "/favicon.svg?v=5"} alt="Avatar" className="w-8 h-8 rounded-full border border-slate-700 object-cover" />
                   <div className="flex flex-col overflow-hidden">
                     <span className="text-sm font-bold text-white truncate">{u.name}</span>
                     <span className="text-xs font-mono text-emerald-400 truncate">{"lab/"}{u.username}</span>

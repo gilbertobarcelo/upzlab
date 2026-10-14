@@ -104,6 +104,8 @@ app.include_router(docs_router, prefix="/api/docs")
 app.include_router(auto_docs_router, prefix="/api/auto-docs")
 app.include_router(sdk_router, prefix="/api/upzlab")
 app.include_router(forum_router, prefix="/api/upzlab")
+from app.api.oauth_provider_routes import router as oauth_provider_router
+app.include_router(oauth_provider_router, prefix="/api/upzlab")
 app.include_router(bounty_router, prefix="/api/upzlab")
 app.include_router(job_router, prefix="/api/upzlab")
 app.include_router(course_router, prefix="/api/upzlab")

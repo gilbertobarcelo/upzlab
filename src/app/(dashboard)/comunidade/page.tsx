@@ -2,6 +2,11 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import Link from "next/link";
+import { Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import MentionTextarea from "../../components/MentionTextarea";
+import Avatar from "../../../components/Avatar";
+import { isVideoPost, validateMedia } from "../../../lib/media";
 import { useComunidade, DevPost } from "../../ComunidadeContext";
 import InlineComments from "../InlineComments";
 import TextWithMentions from "../../components/TextWithMentions";
@@ -76,6 +81,17 @@ function getAdInterval(seed: string): number {
 }
 
 export default function ComunidadeFeedPage() {
+  return (
+    <Suspense fallback={null}>
+      <ComunidadeFeed />
+    </Suspense>
+  );
+}
+
+function ComunidadeFeed() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const activeTag = (searchParams.get("tag") || "").toLowerCase().replace(/^#/, "");
   const { posts, likePost, formatPoints, addPost, devUser, refreshFeed, deletePost, editPost } = useComunidade();
   const [filterCategory, setFilterCategory] = useState("all");
   const [latestRelease, setLatestRelease] = useState<AppRelease | null>(null);
@@ -85,8 +101,16 @@ export default function ComunidadeFeedPage() {
 
   // Post Modal State
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
+  const [postMediaError, setPostMediaError] = useState<string | null>(null);
   const [postDescription, setPostDescription] = useState("");
   const [postImage, setPostImage] = useState<File | null>(null);
+  const [postPreviewUrl, setPostPreviewUrl] = useState("");
+  useEffect(() => {
+    if (!postImage) { setPostPreviewUrl(""); return; }
+    const url = URL.createObjectURL(postImage);
+    setPostPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [postImage]);
   const [isPosting, setIsPosting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -133,8 +157,12 @@ export default function ComunidadeFeedPage() {
     fetchApps();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- Fetch once when the feed page mounts.
 
+  const tagRegex = activeTag
+    ? new RegExp(`(?<![\\w&/#])#${activeTag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}\\p{N}_])`, "iu")
+    : null;
   const filteredPosts = posts.filter(
-    p => filterCategory === "all" || p.category === filterCategory
+    p => (filterCategory === "all" || p.category === filterCategory) &&
+      (!tagRegex || tagRegex.test(`${p.title || ""} ${p.description || ""}`))
   );
 
   // Detecta novo usuário: account_age_days === 0 e ainda não é tester do founder
@@ -326,7 +354,7 @@ export default function ComunidadeFeedPage() {
               </p>
             </div>
             <button
-              onClick={() => setIsPostModalOpen(true)}
+              onClick={() => setIsPostModalOpen((open) => !open)}
               className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-emerald-400 px-4 py-2.5 text-xs font-bold text-[#121212] transition hover:bg-emerald-300"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -354,6 +382,111 @@ export default function ComunidadeFeedPage() {
 
       <div className="space-y-5">
       <section className="min-w-0">
+      {isPostModalOpen && (
+        <div className="mb-4 rounded-xl border border-white/[0.08] bg-[#131516]">
+          <div className="flex items-center justify-between border-b border-white/[0.08] px-4 py-3">
+            <h2 className="text-sm font-semibold text-white">Criar publicação</h2>
+            <button
+              type="button"
+              aria-label="Fechar"
+              onClick={() => { setIsPostModalOpen(false); setPostImage(null); }}
+              className="flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-white/[0.06] hover:text-white"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+          <div className="flex gap-3 p-4">
+            <Avatar url={devUser?.avatarUrl} name={devUser?.name} size={10} />
+            <div className="flex min-w-0 flex-1 flex-col gap-3">
+              <MentionTextarea
+                autoFocus
+                rows={3}
+                value={postDescription}
+                onValueChange={setPostDescription}
+                placeholder="No que você está pensando? Use @ para mencionar e # para hashtags"
+                className="w-full resize-none bg-transparent text-base text-white placeholder-slate-500 focus:outline-none"
+              />
+              {postImage && (
+                <div className="relative max-h-64 w-full overflow-hidden rounded-xl border border-slate-700 bg-black/50">
+                  {postImage.type.startsWith("video/") ? (
+                    <video src={postPreviewUrl} controls playsInline className="max-h-64 w-full bg-black" />
+                  ) : (
+                    <img src={postPreviewUrl} alt="Pré-visualização" className="h-full w-full object-contain" />
+                  )}
+                  <button
+                    type="button"
+                    aria-label="Remover imagem"
+                    onClick={() => setPostImage(null)}
+                    className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/70 text-white hover:bg-black"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          {postMediaError && <p role="alert" className="px-4 pb-2 text-xs text-rose-300">{postMediaError}</p>}
+          <div className="flex items-center justify-between border-t border-white/[0.08] px-4 py-3">
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept="image/png, image/jpeg, image/webp, image/gif, video/mp4, video/webm, video/quicktime"
+              onChange={(e) => {
+                const file = e.target.files?.[0] || null;
+                const problem = file ? validateMedia(file) : null;
+                setPostMediaError(problem);
+                setPostImage(problem ? null : file);
+                e.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-2 rounded-lg px-3 py-2 text-slate-300 hover:bg-white/[0.06]"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span className="text-sm font-semibold">Foto ou vídeo</span>
+            </button>
+            <button type="button" aria-label="Hashtag" onClick={() => setPostDescription(d => `${d}${d && !/\s$/.test(d) ? " " : ""}#`)} className="flex items-center gap-1 rounded-lg px-3 py-2 text-slate-300 hover:bg-white/[0.06]">
+              <span className="text-base font-bold">#</span><span className="text-sm font-semibold">Hashtag</span>
+            </button>
+            <button type="button" aria-label="Mencionar" onClick={() => setPostDescription(d => `${d}${d && !/\s$/.test(d) ? " " : ""}@`)} className="flex items-center gap-1 rounded-lg px-3 py-2 text-slate-300 hover:bg-white/[0.06]">
+              <span className="text-base font-bold">@</span><span className="text-sm font-semibold">Mencionar</span>
+            </button>
+            <button
+              type="button"
+              disabled={(!postDescription.trim() && !postImage) || isPosting}
+              onClick={async () => {
+                setIsPosting(true);
+                await addPost({
+                  category: "publicacao",
+                  title: "",
+                  description: postDescription,
+                  hasImage: !!postImage,
+                  authorName: devUser?.name || "Dev Community",
+                }, postImage);
+                setIsPosting(false);
+                setPostDescription("");
+                setPostImage(null);
+                setIsPostModalOpen(false);
+              }}
+              className="rounded-lg bg-white px-5 py-2 text-sm font-bold text-black hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isPosting ? "Publicando..." : "Publicar"}
+            </button>
+          </div>
+        </div>
+      )}
+      {activeTag && (
+        <div className="mb-3 flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[#131516] px-3 py-2 text-sm text-slate-200">
+          <span className="text-violet-400 font-medium">#{activeTag}</span>
+          <span className="text-slate-500">· {filteredPosts.length} {filteredPosts.length === 1 ? "publicação" : "publicações"}</span>
+          <button type="button" onClick={() => router.push("/comunidade")} className="ml-auto text-xs font-semibold text-slate-300 hover:text-white">Limpar filtro ✕</button>
+        </div>
+      )}
       <nav aria-label="Filtrar publicações" className="mb-4 flex gap-2 overflow-x-auto rounded-xl border border-white/[0.08] bg-[#131516] p-2">
         {[
           ["all", "Tudo"],
@@ -504,8 +637,8 @@ export default function ComunidadeFeedPage() {
               return (
                 <div key={`post-${post.id}-${idx}`} className="flex flex-col relative">
                   <article
-                    className={`relative z-10 overflow-hidden rounded-2xl border transition-colors ${
-                      post.authorName === 'UpzLab Team' 
+                    className={`relative z-10 rounded-2xl border transition-colors ${
+                      post.authorIsStaff 
                         ? 'border-white/15 bg-[#17191b] hover:border-white/25' 
                         : 'border-white/[0.09] bg-[#1a1d21] hover:border-white/20'
                     }`}
@@ -513,27 +646,16 @@ export default function ComunidadeFeedPage() {
                   {/* Card Header */}
                   <div className="flex items-start justify-between gap-3 px-4 pt-4 pb-3 md:px-5 md:pt-5">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-9 h-9 md:w-10 md:h-10 rounded-xl border flex items-center justify-center font-black text-xs font-mono shrink-0 ${
-                        post.authorName === 'UpzLab Team'
-                          ? 'bg-white/[0.08] border-white/15 text-white'
-                          : 'bg-white/[0.05] border-white/10 text-slate-200'
-                      }`}>
-                        {post.authorName === 'UpzLab Team' ? (
-                          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-                        ) : (
-                          (post.authorName || "Dev").split(" ").filter(Boolean).map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || "DEV"
-                        )}
-                      </div>
+                      <Avatar url={post.authorAvatarUrl} name={post.authorName} size={10} />
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <Link href={`/lab/${post.authorUsername || (post.authorName === 'UpzLab Team' ? 'upzlabteam' : 'dev')}`} className="truncate text-sm font-semibold leading-none text-slate-100 transition-opacity hover:opacity-80">
+                          <Link href={`/lab/${post.authorUsername || 'dev'}`} className="truncate text-sm font-semibold leading-none text-slate-100 transition-opacity hover:opacity-80">
                             {post.authorName || "Dev Tester"}
                           </Link>
-                          {post.authorName === 'UpzLab Team' && (
-                            <span className="flex shrink-0 items-center gap-0.5 rounded border border-white/10 bg-white/[0.05] px-1.5 py-0.5 font-mono text-[8px] font-bold uppercase text-slate-300">
-                              <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-                              Oficial
-                            </span>
+                          {post.authorIsStaff && (
+                            <svg className="w-4 h-4 text-blue-400 shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-label="Conta Oficial">
+                              <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+                            </svg>
                           )}
                         </div>
                         <p className="text-[10px] font-mono text-slate-400 mt-0.5 truncate flex items-center gap-1.5">
@@ -617,11 +739,16 @@ export default function ComunidadeFeedPage() {
                     </div>
                     {post.imageUrl && typeof post.imageUrl === 'string' && (
                       <div className="mt-3 rounded-xl overflow-hidden border border-slate-700">
-                        <img 
-                          src={post.imageUrl.startsWith('/') ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'}${post.imageUrl}` : post.imageUrl} 
-                          alt="Post attachment" 
-                          className="w-full object-cover max-h-96" 
-                        />
+                        {(() => {
+                          const mediaSrc = post.imageUrl.startsWith('/')
+                            ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'}${post.imageUrl}`
+                            : post.imageUrl;
+                          return isVideoPost(post) ? (
+                            <video src={mediaSrc} controls preload="metadata" playsInline className="w-full max-h-96 bg-black" />
+                          ) : (
+                            <img src={mediaSrc} alt="Post attachment" className="w-full object-cover max-h-96" />
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
@@ -803,98 +930,6 @@ export default function ComunidadeFeedPage() {
         </div>
       )}
 
-      {/* Modal de Nova Publicação */}
-      {isPostModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 pt-20 md:pt-32 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[#1a1d21] border border-slate-800 rounded-3xl w-full max-w-xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden flex flex-col">
-            
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800/60">
-              <h2 className="text-white font-black text-lg">Criar Publicação</h2>
-              <button 
-                onClick={() => setIsPostModalOpen(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-800/50 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-5 flex gap-4">
-              {/* User Avatar */}
-              <div className="w-10 h-10 rounded-full bg-indigo-900/50 border border-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold shrink-0">
-                {devUser?.name ? devUser.name[0].toUpperCase() : "D"}
-              </div>
-              
-              {/* Text Area */}
-              <div className="flex-1 flex flex-col gap-3">
-                <textarea
-                  autoFocus
-                  rows={4}
-                  value={postDescription}
-                  onChange={(e) => setPostDescription(e.target.value)}
-                  placeholder="No que você está pensando?"
-                  className="w-full bg-transparent text-white placeholder-slate-500 text-lg md:text-xl resize-none focus:outline-none"
-                />
-                
-                {/* Image Preview */}
-                {postImage && (
-                  <div className="relative rounded-xl overflow-hidden border border-slate-700 w-full max-h-64 bg-black/50">
-                    <img src={URL.createObjectURL(postImage)} alt="Preview" className="w-full h-full object-contain" />
-                    <button 
-                      onClick={() => setPostImage(null)}
-                      className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/70 hover:bg-black text-white flex items-center justify-center transition-colors"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Modal Actions (Image & Submit) */}
-            <div className="px-5 py-3 border-t border-slate-800/60 flex items-center justify-between bg-[#121212]/30">
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                className="hidden" 
-                accept="image/png, image/jpeg, image/webp" 
-                onChange={(e) => setPostImage(e.target.files?.[0] || null)} 
-              />
-              <button 
-                onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl text-indigo-400 hover:bg-indigo-500/10 transition-colors group cursor-pointer"
-              >
-                <svg className="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2 2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <span className="text-sm font-bold">Mídia</span>
-              </button>
-
-              <button
-                disabled={(!postDescription.trim() && !postImage) || isPosting}
-                onClick={async () => {
-                  setIsPosting(true);
-                  await addPost({
-                    category: "publicacao",
-                    title: "", // Posts da comunidade não usam título
-                    description: postDescription,
-                    hasImage: !!postImage,
-                    authorName: devUser?.name || "Dev Community",
-                  }, postImage);
-                  setIsPosting(false);
-                  setPostDescription("");
-                  setPostImage(null);
-                  setIsPostModalOpen(false);
-                }}
-                className="px-6 py-2 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isPosting ? "Publicando..." : "Publicar"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

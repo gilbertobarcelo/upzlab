@@ -9,23 +9,39 @@ export default function TextWithMentions({ text }: { text?: string }) {
   const urlRegex = /(https?:\/\/[^\s]+)/g;
   const urls = text.match(urlRegex) || [];
 
-  // Regex to split by lab/username and urls
-  const parts = text.split(/(lab\/[a-zA-Z0-9_\.]+|https?:\/\/[^\s]+)/g);
+  // URLs primeiro, para que "#" e "@" dentro de links não virem menção/hashtag
+  const parts = text.split(/(https?:\/\/[^\s]+|(?<![\w/])lab\/[a-zA-Z0-9_.]+|(?<![\w@])@[a-zA-Z0-9_.]+|(?<![\w&/#])#[\p{L}\p{N}_]{2,50})/gu);
   
   return (
     <div className="flex flex-col gap-2">
       <div className="whitespace-pre-wrap">
         {parts.map((part, i) => {
-          if (part.startsWith('lab/')) {
-            const username = part.substring(4);
+          if (part.startsWith('#')) {
             return (
-              <Link 
-                key={i} 
-                href={`/lab/${username}`} 
-                className="text-emerald-400 hover:text-emerald-300 font-mono drop-shadow-[0_0_5px_rgba(16,185,129,0.3)] transition-all"
+              <Link
+                key={i}
+                href={`/comunidade?tag=${encodeURIComponent(part.substring(1).toLowerCase())}`}
+                className="text-violet-400 hover:text-violet-300 font-medium"
               >
                 {part}
               </Link>
+            );
+          }
+          if (part.startsWith('lab/') || part.startsWith('@')) {
+            const raw = part.startsWith('@') ? part.substring(1) : part.substring(4);
+            const username = raw.replace(/\.+$/, '');
+            const trailing = raw.slice(username.length);
+            if (!username) return <span key={i}>{part}</span>;
+            return (
+              <React.Fragment key={i}>
+              <Link
+                href={`/lab/${username}`}
+                className="text-emerald-400 hover:text-emerald-300 font-medium"
+              >
+                {part.startsWith('@') ? `@${username}` : `lab/${username}`}
+              </Link>
+              {trailing}
+              </React.Fragment>
             );
           }
           if (part.match(urlRegex)) {

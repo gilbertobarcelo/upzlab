@@ -57,3 +57,13 @@ nextjs-portal,
   opacity: 0 !important;
   pointer-events: none !important;
 }
+
+.no-scrollbar,
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

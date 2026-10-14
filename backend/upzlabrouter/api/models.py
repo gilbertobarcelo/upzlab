@@ -6,6 +6,7 @@ from upzlabrouter.api.auth import authenticate_api_key
 from upzlabrouter.core.config import MODEL_CATALOG, PROVIDER_KEYS
 from upzlabrouter.services.quota import get_all_status
 from upzlabrouter.services.novita_catalog import fetch_novita_models
+from upzlabrouter.services.free_catalog import fetch_free_groq_models, fetch_free_openrouter_models
 
 router = APIRouter(tags=["UpzLabRouter Models"])
 
@@ -28,8 +29,18 @@ def list_public_free_models():
         for model in fetch_novita_models()
         if model["is_free"]
     ]
+    for provider_id, fetcher in (("groq", fetch_free_groq_models), ("openrouter", fetch_free_openrouter_models)):
+        for model_id in fetcher():
+            models.append({
+                "id": f"{provider_id}/{model_id}",
+                "name": model_id,
+                "description": "Modelo gratuito do UpzLabRouter.",
+                "context_window": None,
+                "category": "text",
+                "is_free": True,
+            })
     models.sort(key=lambda model: (model["category"], model["name"].lower(), model["id"]))
-    return {"provider": "Novita", "free_only": True, "data": models}
+    return {"provider": "UpzLabRouter", "free_only": True, "data": models}
 
 
 @router.get("/v1/models")
@@ -72,5 +83,25 @@ def list_models(request: Request, db: Session = Depends(get_db)):
                 "available": novita_status.get("is_active", True)
                 and novita_status.get("remaining", 1) > 0,
                 "remaining_today": novita_status.get("remaining"),
+            })
+    seen = {m["id"] for m in models}
+    for provider_id, fetcher in (("groq", fetch_free_groq_models), ("openrouter", fetch_free_openrouter_models)):
+        status = quota_map.get(provider_id, {})
+        available = bool(PROVIDER_KEYS.get(provider_id)) and status.get("is_active", True) and status.get("remaining", 1) > 0
+        for model_id in fetcher():
+            alias = f"{provider_id}/{model_id}"
+            if alias in seen:
+                continue
+            models.append({
+                "id": alias,
+                "provider": provider_id,
+                "model": model_id,
+                "tier": "free",
+                "pts_per_1k_tokens": 0,
+                "description": "Modelo gratuito do UpzLabRouter.",
+                "context_window": 0,
+                "category": "text",
+                "available": available,
+                "remaining_today": status.get("remaining"),
             })
     return {"object": "list", "data": models}

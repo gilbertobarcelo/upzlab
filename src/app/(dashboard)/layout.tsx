@@ -7,10 +7,10 @@ import { useComunidade } from "../ComunidadeContext";
 import DashboardHeader from "@/components/DashboardHeader";
 
 const getAppIconSrc = (icon: string) => {
-  if (!icon) return "/favicon.svg";
+  if (!icon) return "/favicon.svg?v=5";
   if (icon.startsWith("http")) return icon;
   if (icon.startsWith("/uploads")) return `http://localhost:8001${icon}`;
-  if (icon === "/logo_egolpe.png") return "/favicon.svg";
+  if (icon === "/logo_egolpe.png") return "/favicon.svg?v=5";
   return icon;
 };
 
@@ -25,7 +25,7 @@ const SidebarAppIcon = ({ iconUrl, appName }: { iconUrl: string; appName: string
 
   const handleError = () => {
     if (errorCount === 0) {
-      setImgSrc("/favicon.svg");
+      setImgSrc("/favicon.svg?v=5");
       setErrorCount(1);
     } else {
       setErrorCount(2);
@@ -49,6 +49,71 @@ const SidebarAppIcon = ({ iconUrl, appName }: { iconUrl: string; appName: string
     />
   );
 };
+
+interface CommunityMember {
+  username: string;
+  name: string;
+  avatar_url?: string | null;
+  level?: string;
+  points: number;
+}
+
+const memberAvatar = (url?: string | null) => {
+  if (!url || url.includes("ui-avatars.com")) return "";
+  if (url.startsWith("/uploads")) return `http://localhost:8001${url}`;
+  return url;
+};
+
+function CommunityMembers() {
+  const [total, setTotal] = useState(0);
+  const [members, setMembers] = useState<CommunityMember[]>([]);
+
+  useEffect(() => {
+    fetch("http://localhost:8001/api/upzlab/dev/members?limit=5")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.success) {
+          setTotal(d.total || 0);
+          setMembers(d.data || []);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  if (members.length === 0) return null;
+
+  return (
+    <div className="rounded-2xl border border-[#2a2e35] bg-[#1a1d21] p-4">
+      <div className="flex items-center justify-between">
+        <h2 className="font-mono text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">Devs na comunidade</h2>
+        <span className="rounded-md bg-white/[0.05] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-200">{total}</span>
+      </div>
+      <ul className="mt-3 space-y-1">
+        {members.slice(0, 5).map((m) => (
+          <li key={m.username}>
+            <Link href={`/lab/${m.username}`} className="flex items-center gap-2.5 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-white/[0.045]">
+              <img
+                src={memberAvatar(m.avatar_url) || "/favicon.svg?v=5"}
+                alt=""
+                className="h-8 w-8 shrink-0 rounded-full border border-[#2a2e35] bg-[#0d0d0d] object-cover"
+                onError={(e) => {
+                  if (!e.currentTarget.src.endsWith("/favicon.svg?v=5")) e.currentTarget.src = "/favicon.svg?v=5";
+                }}
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-xs font-semibold text-slate-100">{m.name}</span>
+                <span className="block truncate text-[10px] text-slate-500">@{m.username}{m.level ? ` · ${m.level}` : ""}</span>
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <Link href="/ranking" className="mt-3 block text-[10px] font-semibold text-slate-500 transition hover:text-emerald-300">
+        Ver ranking completo <span aria-hidden="true">→</span>
+      </Link>
+    </div>
+  );
+}
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -94,7 +159,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   return (
-    <div className="bg-[#121212] text-white min-h-screen">
+    <div className="bg-[#121212] text-white min-h-screen pb-16 lg:pb-0">
       <DashboardHeader />
 
       {isRouterDashboard ? (
@@ -190,8 +255,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </main>
 
           <aside aria-label="Apps promovidos e UpzLabRouter" className="hidden xl:block w-[300px] shrink-0 sticky top-20 h-[calc(100vh-6rem)] bg-transparent p-3">
-            <div className="flex flex-col gap-5 h-full">
-              <div className="flex-1 overflow-y-auto scrollbar-hide space-y-3 pr-1 pb-4 pt-2">
+            <div className="flex flex-col gap-5 h-full min-h-0">
+              <div className="flex-1 min-h-0 overflow-y-auto scrollbar-hide space-y-3 pr-1 pb-4 pt-2">
                 <Link
                   href="/upzlabrouter"
                   className="group block overflow-hidden rounded-2xl border border-slate-300/20 bg-gradient-to-br from-[#1a1d21] via-[#1a1d21] to-[#1a1d21] p-4 transition-colors hover:border-white/40"
@@ -214,6 +279,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     Conhecer o Router
                   </span>
                 </Link>
+
+                <CommunityMembers />
 
                 {promotedApps.length > 0 && (
                   <div className="flex items-center justify-between px-1 pt-2">
@@ -269,6 +336,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <span className="mt-1 block text-[11px] leading-4 text-slate-500">Ative uma campanha no Lab Studio para aparecer neste espaço.</span>
                   </Link>
                 )}
+              </div>
+
+              <div className="shrink-0 space-y-1.5 pb-2">
+                <div className="flex flex-wrap gap-x-2 gap-y-1">
+                  <Link href="/privacidade" className="text-[10px] text-slate-500 hover:text-slate-400 transition-colors">Privacidade</Link>
+                  <span className="text-[10px] text-slate-700">·</span>
+                  <Link href="/privacidade-saude" className="text-[10px] text-slate-500 hover:text-slate-400 transition-colors">Privacidade da Saúde do Consumidor</Link>
+                  <span className="text-[10px] text-slate-700">·</span>
+                  <Link href="/termos" className="text-[10px] text-slate-500 hover:text-slate-400 transition-colors">Termos</Link>
+                  <span className="text-[10px] text-slate-700">·</span>
+                  <Link href="/publicidade" className="text-[10px] text-slate-500 hover:text-slate-400 transition-colors">Publicidade</Link>
+                </div>
+                <p className="text-[10px] text-slate-600">Desenvolvido por UpzLab · © {new Date().getFullYear()}</p>
               </div>
             </div>
           </aside>

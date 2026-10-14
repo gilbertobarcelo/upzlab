@@ -21,6 +21,8 @@ updates_router = APIRouter(prefix="/upzlab/beta-updates", tags=["UpzLab Beta Upd
 # Diretório backend/ — sobe 2 níveis a partir de app/api/
 _BASE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 UPLOAD_DIR = os.path.join(_BASE, "uploads", "posts")
+MAX_POST_IMAGE_BYTES = 10 * 1024 * 1024
+MAX_VIDEO_BYTES = 50 * 1024 * 1024
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # Upload de imagens: allowlist + limite de 5 MB por arquivo.
@@ -162,6 +164,8 @@ async def get_comunidade_feed(
     user_ids = [item.user_id for item in items if item.user_id]
     devs = db.query(DevProfile).filter(DevProfile.id.in_(user_ids)).all() if user_ids else []
     dev_map = {d.id: d.username or (d.name.replace(" ", "").lower() if d.name else "dev") for d in devs}
+    dev_by_id = {d.id: d for d in devs}
+    official = db.query(DevProfile).filter(DevProfile.is_staff == True).order_by(DevProfile.id).first()  # noqa: E712
 
     for item in items:
         badge_label = None
@@ -204,6 +208,8 @@ async def get_comunidade_feed(
                 "db_id": item.id,
                 "authorName": item.author_name or "Dev Tester",
                 "authorUsername": dev_map.get(item.user_id, "dev"),
+                "authorAvatarUrl": getattr(dev_by_id.get(item.user_id), "avatar_url", None),
+                "authorIsStaff": bool(getattr(dev_by_id.get(item.user_id), "is_staff", False)),
                 "authorRole": item.author_role or "Security & Code Tester",
                 "authorAvatarBg": "from-[#00FF87] to-emerald-600",
                 "category": item.type or "anomalia",
@@ -240,7 +246,9 @@ async def get_comunidade_feed(
                 "id": f"update-{u.id}",
                 "db_id": u.id,
                 "authorName": "UpzLab Team",
-                "authorUsername": "upzlabteam",
+                "authorUsername": official.username if official and official.username else "upzlab",
+                "authorAvatarUrl": official.avatar_url if official else None,
+                "authorIsStaff": True,
                 "authorRole": "Admin & Product",
                 "authorAvatarBg": "from-emerald-500 to-teal-700",
                 "category": "update",  # Normalize to show in the Atualizações tab
@@ -335,11 +343,19 @@ async def create_comunidade_post(
         for img in images:
             if img.filename:
                 ext = img.filename.rsplit(".", 1)[-1].lower()
-                if ext in ("jpg", "jpeg", "png", "gif", "webp", "txt", "log"):
+                if ext in ("jpg", "jpeg", "png", "gif", "webp", "txt", "log", "mp4", "webm", "mov"):
+                    is_video = ext in ("mp4", "webm", "mov")
+                    limit = MAX_VIDEO_BYTES if is_video else MAX_POST_IMAGE_BYTES
+                    content = await img.read(limit + 1)
+                    if len(content) > limit:
+                        raise HTTPException(
+                            status_code=413,
+                            detail=f"Arquivo muito grande. Limite de {limit // (1024 * 1024)} MB para {'vídeos' if is_video else 'imagens'}.",
+                        )
                     fname = f"{uuid.uuid4().hex}.{ext}"
                     fpath = os.path.join(UPLOAD_DIR, fname)
                     with open(fpath, "wb") as f:
-                        f.write(await img.read())
+                        f.write(content)
                     saved_paths.append(f"/uploads/posts/{fname}")
 
     # Support saving user_id as an integer if it's an AppUser, else None for Global Admins

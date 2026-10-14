@@ -20,12 +20,14 @@ export async function proxy(request: NextRequest) {
     pathname === "/sdk" ||
     (pathname.startsWith("/sdk/") && !pathname.startsWith("/sdk/monitoramento"));
   const isPublicRouterLanding = pathname === "/upzlabrouter";
+  const isLegalPage = ["/privacidade", "/privacidade-saude", "/termos", "/publicidade", "/exclusao-de-dados"].includes(pathname);
   if (
     pathname === "/" ||
     pathname === "/cadastro" ||
     pathname === "/login" ||
     isPublicSdkDocumentation ||
-    isPublicRouterLanding
+    isPublicRouterLanding ||
+    isLegalPage
   ) {
     return NextResponse.next();
   }

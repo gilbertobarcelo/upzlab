@@ -62,8 +62,7 @@ def chat_completions(
         "id": f"chatcmpl-upzlk-{uuid4().hex}",
         "object": "chat.completion",
         "created": created,
-        "model": response.model,
-        "provider": response.provider,
+        "model": payload.model,
         "upzpoints_charged": points_charged,
         "choices": [
             {

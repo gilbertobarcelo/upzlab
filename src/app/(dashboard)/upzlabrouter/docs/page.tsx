@@ -12,7 +12,7 @@ export default function UpzLabRouterDocsPage() {
   const curl = `curl ${API_BASE}/v1/chat/completions \\
   -H "Authorization: Bearer SUA_UPZLAB_KEY" \\
   -H "Content-Type: application/json" \\
-  -d '{"model":"novita/ID_DO_MODELO","messages":[{"role":"user","content":"Olá!"}]}'`;
+  -d '{"model":"auto","messages":[{"role":"user","content":"Olá!"}]}'`;
 
   const copyExample = async () => {
     try {
@@ -45,7 +45,7 @@ export default function UpzLabRouterDocsPage() {
       <section className="rounded-2xl border border-[#2a2e35] bg-[#1a1d21] p-5 sm:p-6">
         <h2 className="text-base font-semibold">2. Escolha um modelo gratuito</h2>
         <p className="mt-1 text-xs leading-5 text-slate-400">
-          Copie o identificador na página de modelos. No campo <code className="text-slate-200">model</code>, use o prefixo <code className="text-slate-200">novita/</code> seguido pelo ID.
+          No campo <code className="text-slate-200">model</code>, use <code className="text-slate-200">auto</code> para deixar o roteador escolher um modelo disponível ou informe o ID copiado do catálogo.
         </p>
         <Link href="/upzlabrouter/models" className="mt-3 inline-flex text-xs font-semibold text-slate-200 hover:text-slate-300">Abrir catálogo →</Link>
       </section>
@@ -66,20 +66,6 @@ export default function UpzLabRouterDocsPage() {
         </pre>
       </section>
 
-      <section className="rounded-2xl border border-amber-300/10 bg-amber-300/[0.035] p-5">
-        <h2 className="text-sm font-semibold text-amber-100">Áudio e vídeo</h2>
-        <p className="mt-1 text-xs leading-5 text-amber-100/65">
-          As APIs de geração de áudio, imagem e vídeo da Novita são separadas da API de chat. Nesta primeira etapa, o UpzLabRouter executa apenas modelos de chat gratuitos; as demais modalidades serão integradas posteriormente.
-        </p>
-        <a
-          href="https://docs.novita.ai/api-reference/model-apis-introduction"
-          target="_blank"
-          rel="noreferrer"
-          className="mt-3 inline-flex text-xs font-semibold text-amber-100/80 hover:text-amber-50"
-        >
-          Documentação oficial das APIs multimodais ↗
-        </a>
-      </section>
     </main>
   );
 }

@@ -112,10 +112,10 @@ export default function UpzLabRouterModelsPage() {
     <main className="mx-auto w-full max-w-6xl min-w-0 space-y-6 pb-8 text-white">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-200/60">UpzLabRouter / Novita</p>
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-slate-200/60">UpzLabRouter / Gratuitos</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">Modelos gratuitos</h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-            Catálogo atualizado pela API da Novita. Só mostramos aqui modelos com preço de entrada e saída igual a zero.
+            Catálogo sempre atualizado. Só mostramos aqui modelos com preço de entrada e saída igual a zero.
           </p>
         </div>
         <span className="rounded-xl border border-emerald-300/15 bg-emerald-300/[0.06] px-3 py-2 font-mono text-xs text-emerald-200">
@@ -126,7 +126,7 @@ export default function UpzLabRouterModelsPage() {
       {error && (
         <div role="alert" className="rounded-xl border border-rose-300/20 bg-rose-300/[0.06] px-4 py-3 text-sm text-rose-200">
           {error}
-          <p className="mt-1 text-xs text-rose-100/65">Se o catálogo não estiver configurado, o administrador deve definir <code>NOVITA_API_KEY</code> em <code>backend/novita.env</code> e reiniciar o backend.</p>
+          <p className="mt-1 text-xs text-rose-100/65">Se o problema persistir, contate o administrador.</p>
         </div>
       )}
 
@@ -206,26 +206,16 @@ export default function UpzLabRouterModelsPage() {
               {filter === "audio" || filter === "video"
                 ? `Catálogo de ${filter === "audio" ? "áudio" : "vídeo"} em integração`
                 : models.length === 0 && catalogCount !== null && catalogCount > 0 && filter === "all" && !query.trim()
-                  ? "A Novita não retornou modelos gratuitos"
+                  ? "Nenhum modelo gratuito disponível no momento"
                   : "Nenhum modelo encontrado"}
             </p>
             <p className="mx-auto mt-2 max-w-lg text-xs leading-5 text-slate-500">
               {filter === "audio" || filter === "video"
-                ? "Áudio e vídeo usam APIs próprias da Novita, separadas da API de chat. Vamos adicioná-las depois do catálogo inicial de modelos gratuitos de texto."
+                ? "O catálogo de áudio e vídeo ainda não está disponível."
                 : models.length === 0 && catalogCount !== null && catalogCount > 0 && filter === "all" && !query.trim()
                   ? `A API retornou ${catalogCount} modelos, mas nenhum está confirmado com preço zero na entrada e na saída. Modelos pagos continuam bloqueados até existir um sistema de pagamento.`
                 : "Tente outra busca ou categoria. Modelos pagos não aparecem porque o pagamento ainda não está habilitado."}
             </p>
-            {(filter === "audio" || filter === "video") && (
-              <a
-                href="https://docs.novita.ai/api-reference/model-apis-introduction"
-                target="_blank"
-                rel="noreferrer"
-                className="mt-4 inline-flex text-xs font-semibold text-slate-200 hover:text-slate-300"
-              >
-                Ver APIs multimodais da Novita <span className="ml-1" aria-hidden="true">↗</span>
-              </a>
-            )}
           </div>
         )}
       </section>

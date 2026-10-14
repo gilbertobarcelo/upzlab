@@ -1,4 +1,3 @@
-import requests
 import json
 import os
 from fastapi import HTTPException
@@ -11,9 +10,6 @@ from app.models.faq_models import FaqDoc
 
 load_dotenv()
 # Chave NUNCA hardcoded — vem do backend/.env (gitignored).
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL_NAME = "apodex/apodex-1.1-mini:free"
 
 import re
 
@@ -30,8 +26,6 @@ def process_chat_request(request: ChatRequest, db: Session = None) -> str:
     Focado APENAS em FAQ, ajuda, UpzPoints, etc. Sem poderes de sistema.
     A base de conhecimento (FaqDoc) é lida dinamicamente do Banco de Dados.
     """
-    if not OPENROUTER_API_KEY:
-        raise HTTPException(status_code=503, detail="IA indisponível: OPENROUTER_API_KEY não configurada no servidor.")
     try:
         # Monta a base de conhecimento dinâmica RAG
         base_de_conhecimento = ""
@@ -56,32 +50,12 @@ Ao final da sua resposta curta, anexe OBRIGATORIAMENTE a seguinte frase exata, s
 {base_de_conhecimento}
 """
 
-        payload = {
-            "model": MODEL_NAME,
-            "messages": [
-                {
-                    "role": "system", 
-                    "content": prompt_sistema
-                },
-            ] + [msg.dict() for msg in request.messages]
-        }
+        from upzlabrouter.services.internal import router_chat
+        history = [{"role": m.role, "content": m.content} for m in request.messages if m.role in ("user", "assistant")]
+        return router_chat([{"role": "system", "content": prompt_sistema}] + history, db, max_tokens=600)
         
-        headers = {
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "HTTP-Referer": "http://localhost:3003",
-            "X-Title": "UpzLab Community",
-        }
-        
-        response = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=60)
-        if not response.ok:
-            print(f"OpenRouter Error {response.status_code}: {response.text}")
-        response.raise_for_status()
-        data = response.json()
-        
-        return data["choices"][0]["message"]["content"]
-        
-    except requests.exceptions.RequestException as e:
-        raise HTTPException(status_code=503, detail=f"Erro de conexão com o OpenRouter: {str(e)}")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

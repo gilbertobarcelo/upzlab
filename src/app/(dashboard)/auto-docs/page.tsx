@@ -35,6 +35,8 @@ export default function AutoDocsSetupPage() {
   const [docType, setDocType] = useState<DocType>("educational");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isStaff, setIsStaff] = useState(false);
+  const [freeName, setFreeName] = useState("");
 
   // Cota
   const [quota, setQuota] = useState<QuotaInfo | null>(null);
@@ -54,9 +56,19 @@ export default function AutoDocsSetupPage() {
       .catch(console.error);
   }, [devUser?.id]);
 
+  // Staff pode gerar docs avulsas, sem app cadastrado
+  useEffect(() => {
+    fetch(`${API}/api/auto-docs/quota?doc_type=educational`, { headers: authHeaders() })
+      .then(r => r.json())
+      .then(d => setIsStaff(!!d?.is_staff))
+      .catch(() => setIsStaff(false));
+  }, []);
+
+  const isFree = isStaff && selectedAppId === "__free__";
+
   // Carrega cota ao mudar app ou tipo de doc
   useEffect(() => {
-    if (!selectedAppId) { setQuota(null); return; }
+    if (!selectedAppId || selectedAppId === "__free__") { setQuota(null); return; }
     setLoadingQuota(true);
     fetch(`${API}/api/auto-docs/quota?doc_type=${docType}&beta_product_id=${selectedAppId}`, { headers: authHeaders() })
       .then(r => r.json())
@@ -77,8 +89,9 @@ export default function AutoDocsSetupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedApp || !githubUrl) {
-      setError("Selecione um app e informe a URL do GitHub.");
+    const appName = isFree ? freeName.trim() : selectedApp?.name;
+    if (!appName || !githubUrl) {
+      setError(isFree ? "Informe o nome da doc e a URL do GitHub." : "Selecione um app e informe a URL do GitHub.");
       return;
     }
     setLoading(true);
@@ -88,10 +101,10 @@ export default function AutoDocsSetupPage() {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
-          app_name: selectedApp.name,
+          app_name: appName,
           github_url: githubUrl,
           doc_type: docType,
-          beta_product_id: parseInt(selectedAppId),
+          beta_product_id: isFree ? null : parseInt(selectedAppId),
         }),
       });
       const json = await res.json();
@@ -105,7 +118,7 @@ export default function AutoDocsSetupPage() {
       }
       if (!res.ok) throw new Error(json.detail || "Erro ao iniciar geração.");
 
-      setSubmittedAppName(selectedApp.name);
+      setSubmittedAppName(appName);
       setSubmitted(true);
       setCountdown(json.estimated_seconds || ESTIMATED_SECS);
     } catch (err: any) {
@@ -188,7 +201,7 @@ export default function AutoDocsSetupPage() {
           {/* Seletor de app */}
           <div className={styles.inputGroup}>
             <label className={styles.label}>Seu Aplicativo</label>
-            {myApps.length === 0 ? (
+            {myApps.length === 0 && !isStaff ? (
               <p style={{ color: "#64748b", fontSize: "0.85rem" }}>
                 Você não tem apps cadastrados.{" "}
                 <a href="/apps/novo" style={{ color: "#10b981" }}>Cadastrar agora →</a>
@@ -202,6 +215,7 @@ export default function AutoDocsSetupPage() {
                 required
               >
                 <option value="">— Selecione um app —</option>
+                {isStaff && <option value="__free__">+ Doc avulsa (sem app)</option>}
                 {myApps.map(app => (
                   <option key={app.id} value={app.id}>{app.name}</option>
                 ))}
@@ -209,8 +223,23 @@ export default function AutoDocsSetupPage() {
             )}
           </div>
 
+          {isFree && (
+            <div className={styles.inputGroup}>
+              <label className={styles.label}>Nome da documentação</label>
+              <input
+                type="text"
+                className={styles.input}
+                placeholder="Ex: UpzLab Community"
+                value={freeName}
+                onChange={e => setFreeName(e.target.value)}
+                disabled={loading}
+                required
+              />
+            </div>
+          )}
+
           {/* Info de cota */}
-          {selectedAppId && (
+          {selectedAppId && !isFree && (
             <div style={{ padding: "10px 14px", borderRadius: 8, backgroundColor: "#0f172a", border: "1px solid #1e293b", fontSize: "0.82rem" }}>
               {loadingQuota ? (
                 <span style={{ color: "#64748b" }}>Verificando cota...</span>
@@ -281,7 +310,7 @@ export default function AutoDocsSetupPage() {
             <button
               type="submit"
               className={styles.submitButton}
-              disabled={loading || isBlocked || !selectedAppId || !githubUrl}
+              disabled={loading || isBlocked || !selectedAppId || !githubUrl || (isFree && !freeName.trim())}
             >
               {loading ? "Iniciando..." : isBlocked ? `Bloqueado (${quota?.days_left} dias)` : "Gerar Documentação"}
             </button>

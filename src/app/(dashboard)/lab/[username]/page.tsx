@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useComunidade } from "../../../ComunidadeContext";
 import InlineComments from "../../InlineComments";
+import TextWithMentions from "../../../components/TextWithMentions";
 
 const API_BASE = "http://localhost:8001";
 
@@ -17,9 +18,16 @@ function getToken() {
 }
 
 import { useParams } from "next/navigation";
+import { authHeaders } from "@/lib/auth";
+import { isVideoPost } from "@/lib/media";
+import Avatar from "@/components/Avatar";
 
 export default function ComunidadePerfilPage() {
-  const { devUser, refreshDevUser } = useComunidade();
+  const { devUser, refreshDevUser, deletePost, editPost } = useComunidade();
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editText, setEditText] = useState("");
+  const [confirmDelId, setConfirmDelId] = useState<number | null>(null);
+  const [menuId, setMenuId] = useState<number | null>(null);
   const params = useParams();
   const routeUsernameRaw = params?.username as string;
   const routeUsername = routeUsernameRaw ? decodeURIComponent(routeUsernameRaw) : "";
@@ -56,7 +64,7 @@ export default function ComunidadePerfilPage() {
   useEffect(() => {
     if (!isOwnProfile && cleanRouteUsername) {
       setLoadingPublic(true);
-      fetch(`${API_BASE}/api/dev/auth/public/${cleanRouteUsername}`)
+      fetch(`${API_BASE}/api/dev/auth/public/${cleanRouteUsername}`, { headers: authHeaders() })
         .then(r => r.json())
         .then(d => { if (d.success) setPublicProfile(d.data); })
         .catch(console.error)
@@ -75,6 +83,20 @@ export default function ComunidadePerfilPage() {
         .finally(() => setLoadingPosts(false));
     }
   }, [activeTab, devUser?.id, isOwnProfile, publicProfile?.id]);
+
+  const [overview, setOverview] = useState<any>(null);
+  const [loadingOverview, setLoadingOverview] = useState(false);
+  const overviewUser = isOwnProfile ? devUser?.username : cleanRouteUsername;
+  useEffect(() => {
+    if (!overviewUser || activeTab === "Posts") return;
+    setLoadingOverview(true);
+    fetch(`${API_BASE}/api/dev/auth/public/${overviewUser}/overview`, { headers: authHeaders() })
+      .then(r => r.json())
+      .then(d => { if (d.success) setOverview(d.data); })
+      .catch(console.error)
+      .finally(() => setLoadingOverview(false));
+  }, [overviewUser, activeTab]);
+  const gh = overview?.github;
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
@@ -228,7 +250,7 @@ export default function ComunidadePerfilPage() {
 
             {/* Avatar */}
             <div className="absolute -top-12 md:-top-14 p-1 bg-[#0A0E1A] rounded-full inline-block group/avatar cursor-pointer">
-              <img src={targetUser.avatarUrl || "/favicon.svg"} alt="Avatar" className={`w-20 h-20 md:w-24 md:h-24 rounded-full border-2 object-cover bg-[#0d0d0d] ${isStaff ? "border-emerald-500" : "border-slate-700"}`} />
+              <img src={targetUser.avatarUrl || "/favicon.svg?v=5"} alt="Avatar" className={`w-20 h-20 md:w-24 md:h-24 rounded-full border-2 object-cover bg-[#0d0d0d] ${isStaff ? "border-emerald-500" : "border-slate-700"}`} />
               {isOwnProfile && (
                 <div className="absolute inset-0 m-1 rounded-full bg-black/0 group-hover/avatar:bg-black/50 transition-all flex items-center justify-center"
                   onClick={() => setShowAvatarMenu(v => !v)}>
@@ -373,31 +395,82 @@ export default function ComunidadePerfilPage() {
           ) : (
             myPosts.map((post: any, idx: number) => (
               <article key={`${post.id}-${idx}`}
-                className={`border rounded-2xl overflow-hidden ${isStaff ? "bg-gradient-to-b from-[#131D33] to-[#0A0E1A] border-emerald-500/30" : "bg-gradient-to-b from-[#131D33] to-[#0A0E1A] border-slate-800/80 hover:border-slate-700/80"}`}>
-                <div className="flex items-center gap-3 px-4 pt-4 pb-3">
-                  <div className={`w-9 h-9 rounded-xl border flex items-center justify-center font-black text-xs font-mono shrink-0 ${isStaff ? "bg-emerald-900/40 border-emerald-500/40 text-emerald-400" : "bg-slate-800 border-slate-700 text-emerald-400"}`}>
-                    {isStaff ? <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg> : getInitials(targetUser.name)}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-sm font-bold text-white">{targetUser.name}</p>
-                      {isStaff && <span className="px-1.5 py-0.5 bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-[8px] font-mono font-bold uppercase rounded">Oficial</span>}
+                className={`relative rounded-2xl border transition-colors ${isStaff ? "border-white/15 bg-[#17191b] hover:border-white/25" : "border-white/[0.09] bg-[#1a1d21] hover:border-white/20"}`}>
+                <div className="flex items-start justify-between gap-3 px-4 pt-4 pb-3 md:px-5 md:pt-5">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar url={targetUser.avatarUrl} name={targetUser.name} size={10} />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-semibold leading-none text-slate-100">{targetUser.name}</p>
+                        {isStaff && <svg className="w-4 h-4 text-blue-400 shrink-0" fill="currentColor" viewBox="0 0 24 24" aria-label="Conta Oficial"><path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.491 4.491 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" /></svg>}
+                      </div>
+                      <p className="text-[10px] font-mono text-slate-400 mt-0.5 truncate">{post.time}</p>
                     </div>
-                    <p className="text-[10px] font-mono text-slate-400">{post.time}{post.type && ` · ${post.type}`}</p>
                   </div>
+                  {isOwnProfile && post.db_id && (
+                    <div className="relative shrink-0">
+                      <button onClick={() => { setMenuId(menuId === post.db_id ? null : post.db_id); setConfirmDelId(null); }} className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-colors">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                      </button>
+                      {menuId === post.db_id && (
+                        <>
+                          <div className="fixed inset-0 z-10" onClick={() => { setMenuId(null); setConfirmDelId(null); }} />
+                          <div className="absolute right-0 top-full mt-1 w-40 bg-[#1E293B] border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-20">
+                            {confirmDelId === post.db_id ? (
+                              <div className="p-3 text-center">
+                                <span className="block text-xs font-bold text-slate-300 mb-2">Excluir post?</span>
+                                <div className="flex gap-2">
+                                  <button onClick={() => setConfirmDelId(null)} className="flex-1 py-1.5 text-xs font-bold text-slate-400 bg-slate-800 hover:bg-slate-700 rounded-lg">Não</button>
+                                  <button onClick={async () => {
+                                    await deletePost(post.db_id);
+                                    setMyPosts((l: any[]) => l.filter(x => x.db_id !== post.db_id));
+                                    setConfirmDelId(null); setMenuId(null);
+                                  }} className="flex-1 py-1.5 text-xs font-bold text-white bg-rose-500 hover:bg-rose-600 rounded-lg">Sim</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <button onClick={() => { setEditingId(post.db_id); setEditText(post.description || ""); setMenuId(null); }} className="w-full px-3 py-2.5 text-left text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-white">Editar</button>
+                                <button onClick={() => setConfirmDelId(post.db_id)} className="w-full px-3 py-2.5 text-left text-xs font-bold text-rose-400 hover:bg-rose-950/40 border-t border-slate-700/50">Deletar</button>
+                              </>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="px-4 pb-3">
                   {post.title && <h2 className="text-sm font-bold text-white mb-2">{post.title}</h2>}
-                  <p className="text-slate-300 text-xs md:text-sm leading-relaxed whitespace-pre-line">{post.description}</p>
+                  {editingId === post.db_id ? (
+                    <div className="space-y-2">
+                      <textarea value={editText} onChange={e => setEditText(e.target.value)} rows={3} className="w-full rounded-lg border border-slate-700 bg-black/30 p-2 text-sm text-white focus:outline-none" />
+                      <div className="flex gap-2">
+                        <button className="rounded-lg bg-white px-3 py-1.5 text-xs font-bold text-black" onClick={async () => {
+                          const t = editText.trim(); if (!t) return;
+                          await editPost(post.db_id, t.slice(0, 80), t);
+                          setMyPosts((l: any[]) => l.map(x => x.db_id === post.db_id ? { ...x, title: t.slice(0, 80), description: t } : x));
+                          setEditingId(null);
+                        }}>Salvar</button>
+                        <button className="rounded-lg px-3 py-1.5 text-xs text-slate-300" onClick={() => setEditingId(null)}>Cancelar</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-slate-300 text-xs md:text-sm leading-relaxed"><TextWithMentions text={post.description} /></div>
+                  )}
 
                   {/* Imagem do post */}
                   {post.imageUrl && (
                     <div className="mt-3 rounded-xl overflow-hidden border border-slate-700">
-                      <img
-                        src={post.imageUrl.startsWith("/") ? `${API_BASE}${post.imageUrl}` : post.imageUrl}
-                        alt="Post attachment"
-                        className="w-full object-cover max-h-96"
-                      />
+                      {isVideoPost(post) ? (
+                        <video src={post.imageUrl.startsWith("/") ? `${API_BASE}${post.imageUrl}` : post.imageUrl} controls preload="metadata" playsInline className="w-full max-h-96 bg-black" />
+                      ) : (
+                        <img
+                          src={post.imageUrl.startsWith("/") ? `${API_BASE}${post.imageUrl}` : post.imageUrl}
+                          alt="Post attachment"
+                          className="w-full object-cover max-h-96"
+                        />
+                      )}
                     </div>
                   )}
                 </div>
@@ -425,7 +498,6 @@ export default function ComunidadePerfilPage() {
                     </svg>
                     <span className="text-xs font-mono font-bold">{post.commentsCount || 0} Comentários</span>
                   </button>
-                  <span className="text-xs font-mono text-slate-600 ml-auto">#{post.id}</span>
                 </div>
 
                 {/* Comentários inline */}
@@ -439,44 +511,99 @@ export default function ComunidadePerfilPage() {
       {/* ── VISÃO GERAL ──────────────────────── */}
       {activeTab === "Visão Geral" && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-[#0A0E1A] p-4 rounded-xl border border-slate-800">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Linguagens</h2>
-            {targetUser.topLanguages
-              ? <div className="flex flex-wrap gap-1.5">
-                  {targetUser.topLanguages.split(",").map((l: string, i: number) => (
-                    <span key={i} className="px-2 py-1 bg-slate-800 border border-slate-700 text-slate-300 text-xs font-mono rounded">{l.trim()}</span>
-                  ))}
+          <div className="md:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              ["Pontos", overview?.points ?? targetUser.points ?? 0],
+              ["Feedbacks", overview?.feedbacks ?? 0],
+              ["Bugs", overview?.bugs ?? 0],
+              ["Apps testados", overview?.tested_apps?.length ?? 0],
+            ].map(([label, value]) => (
+              <div key={String(label)} className="bg-[#0A0E1A] p-4 rounded-xl border border-slate-800 text-center">
+                <p className="text-xl font-bold text-white">{Number(value).toLocaleString("pt-BR")}</p>
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider mt-1">{label}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="md:col-span-2 bg-[#0A0E1A] p-4 rounded-xl border border-slate-800">
+            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Experiência no GitHub</h2>
+            {loadingOverview ? (
+              <p className="text-xs text-slate-500">Carregando...</p>
+            ) : !gh ? (
+              <p className="text-xs text-slate-500 italic">GitHub não conectado.</p>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-slate-300">
+                  {gh.login && <a href={gh.url} target="_blank" rel="noreferrer" className="font-bold text-white hover:underline">@{gh.login}</a>}
+                  <span>{gh.years} {gh.years === 1 ? "ano" : "anos"} no GitHub</span>
+                  <span>{gh.public_repos} repositórios</span>
+                  <span>{gh.stars} estrelas</span>
+                  <span>{gh.followers} seguidores</span>
+                  {gh.company && <span>{gh.company}</span>}
+                  {gh.location && <span>{gh.location}</span>}
                 </div>
-              : <p className="text-xs text-slate-500 italic">Nenhuma linguagem.</p>
-            }
-          </div>
-          <div className="bg-[#0A0E1A] p-4 rounded-xl border border-slate-800">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Medalhas</h2>
-            {!targetUser.badges || targetUser.badges.length === 0
-              ? <p className="text-xs text-slate-500 italic">Nenhuma medalha ainda.</p>
-              : targetUser.badges.map((b: string, i: number) => (
-                  <div key={i} className="flex items-center gap-2 bg-emerald-900/10 border border-emerald-500/10 rounded-lg p-2 mb-1 text-xs font-bold text-emerald-400">
-                    <svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clipRule="evenodd"/></svg>
-                    {b}
+                {gh.languages.length > 0 && (
+                  <div className="space-y-1.5">
+                    {gh.languages.map((l: any) => (
+                      <div key={l.name} className="flex items-center gap-2 text-xs">
+                        <span className="w-24 text-slate-300 font-mono truncate">{l.name}</span>
+                        <div className="flex-1 h-1.5 bg-slate-800 rounded"><div className="h-full bg-violet-500 rounded" style={{ width: `${l.percent}%` }} /></div>
+                        <span className="w-9 text-right text-slate-500">{l.percent}%</span>
+                      </div>
+                    ))}
                   </div>
-                ))
-            }
+                )}
+              </div>
+            )}
           </div>
+
+          {targetUser.bio && (
+            <div className="md:col-span-2 bg-[#0A0E1A] p-4 rounded-xl border border-slate-800">
+              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Sobre</h2>
+              <p className="text-sm text-slate-300 whitespace-pre-wrap">{targetUser.bio}</p>
+            </div>
+          )}
         </div>
       )}
 
       {/* ── APPS TESTADOS ──────────────────────── */}
       {activeTab === "Apps Testados" && (
-        <div className="bg-[#0A0E1A] p-10 rounded-xl border border-slate-800 text-center">
-          <p className="text-slate-400 text-sm font-bold">Nenhum app testado ainda.</p>
-        </div>
+        loadingOverview ? (
+          <div className="p-10 text-center text-slate-500 text-sm">Carregando...</div>
+        ) : !overview?.tested_apps?.length ? (
+          <div className="bg-[#0A0E1A] p-10 rounded-xl border border-slate-800 text-center">
+            <p className="text-slate-400 text-sm font-bold">Nenhum app testado ainda.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {overview.tested_apps.map((a: any) => (
+              <Link key={a.id} href={`/apps/${a.slug}`} className="flex items-center gap-3 bg-[#0A0E1A] p-3 rounded-xl border border-slate-800 hover:border-slate-600">
+                <img src={a.icon ? (a.icon.startsWith("http") ? a.icon : `${API_BASE}${a.icon}`) : "/favicon.svg?v=5"} alt="" className="w-10 h-10 rounded-lg object-cover bg-slate-800" onError={(e) => { (e.target as HTMLImageElement).src = "/favicon.svg?v=5"; }} />
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-white truncate">{a.name}</p>
+                  <p className="text-xs text-slate-500 truncate">{a.category}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )
       )}
 
       {/* ── CONQUISTAS ──────────────────────── */}
       {activeTab === "Conquistas" && (
-        <div className="bg-[#0A0E1A] p-10 rounded-xl border border-slate-800 text-center">
-          <p className="text-slate-400 text-sm font-bold">Nenhuma conquista desbloqueada.</p>
-        </div>
+        loadingOverview ? (
+          <div className="p-10 text-center text-slate-500 text-sm">Carregando...</div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {(overview?.achievements || []).map((c: any) => (
+              <div key={c.id} className={`p-3 rounded-xl border bg-[#0A0E1A] ${c.unlocked ? "border-violet-500/40" : "border-slate-800 opacity-50"}`}>
+                <p className="text-sm font-bold text-white">{c.title}</p>
+                <p className="text-xs text-slate-400 mt-0.5">{c.description}</p>
+                <p className={`text-[10px] mt-1.5 uppercase tracking-wider ${c.unlocked ? "text-violet-400" : "text-slate-600"}`}>{c.unlocked ? "Desbloqueada" : "Bloqueada"}</p>
+              </div>
+            ))}
+          </div>
+        )
       )}
 
     </div>

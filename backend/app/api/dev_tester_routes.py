@@ -25,6 +25,28 @@ async def get_community_ranking(db: Session = Depends(get_db)):
         
     return {"success": True, "data": ranking}
 
+@router.get("/members")
+async def get_community_members(limit: int = 12, db: Session = Depends(get_db)):
+    """Total de devs da comunidade e os membros mais recentes (lista pública enxuta)."""
+    limit = max(1, min(limit, 30))
+    base = db.query(DevProfile).filter(DevProfile.is_staff == False, DevProfile.username.isnot(None))
+    total = base.count()
+    members = base.order_by(DevProfile.id.desc()).limit(limit).all()
+    return {
+        "success": True,
+        "total": total,
+        "data": [
+            {
+                "username": m.username,
+                "name": m.name or m.username,
+                "avatar_url": "" if (m.avatar_url or "").startswith("https://ui-avatars.com") else (m.avatar_url or ""),
+                "level": m.egolpe_level,
+                "points": m.points or 0,
+            }
+            for m in members
+        ],
+    }
+
 @router.get("/{user_id}/points/statement")
 async def get_my_points_statement(user_id: int, db: Session = Depends(get_db)):
     """

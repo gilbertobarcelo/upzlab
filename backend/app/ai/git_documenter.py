@@ -58,8 +58,18 @@ def call_llm(prompt: str, timeout: int = LLM_TIMEOUT, retries: int = 3) -> str:
     retornam rate limit (429) ou ocorre erro de rede/5xx.
     """
     import time
+    # Primeiro tenta o UpzLabRouter (fallback automático entre provedores gratuitos)
+    router_err = None
+    try:
+        from database.database import SessionLocal
+        from upzlabrouter.services.internal import router_chat
+        with SessionLocal() as router_db:
+            return router_chat([{"role": "user", "content": prompt}], router_db, temperature=0.3)
+    except Exception as e:
+        router_err = e
+        print(f"[AutoDocs] UpzLabRouter falhou ({getattr(e, 'detail', e)}); tentando OpenRouter direto.")
     if not OPENROUTER_API_KEY:
-        raise Exception("OPENROUTER_API_KEY não configurada")
+        raise Exception(f"Nenhum provedor de IA disponível: {getattr(router_err, 'detail', router_err)}")
 
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",

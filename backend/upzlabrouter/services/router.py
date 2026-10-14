@@ -11,6 +11,7 @@ from upzlabrouter.providers.base import ChatRequest, ChatResponse
 from upzlabrouter.providers.cohere import CohereProvider
 from upzlabrouter.providers.apodex import ApodexProvider
 from upzlabrouter.providers.novita import NovitaProvider
+from upzlabrouter.providers.openai_compat import OpenRouterProvider, HuggingFaceProvider, GroqProvider
 from upzlabrouter.services.quota import can_use, increment
 from upzlabrouter.models.router_models import RouterUsageLog
 from upzlabrouter.services.novita_catalog import fetch_free_novita_model
@@ -20,7 +21,13 @@ _PROVIDERS = {
     "cohere": CohereProvider(),
     "apodex": ApodexProvider(),
     "novita": NovitaProvider(),
+    "openrouter": OpenRouterProvider(),
+    "huggingface": HuggingFaceProvider(),
+    "groq": GroqProvider(),
 }
+
+# Prefixos para escolher qualquer modelo do provedor: "openrouter/<id>" ou "hf/<id>"
+_DYNAMIC_PREFIXES = {"openrouter/": "openrouter", "hf/": "huggingface", "groq/": "groq"}
 
 
 def _resolve_model(model_alias: str) -> list[dict]:
@@ -36,6 +43,20 @@ def _resolve_model(model_alias: str) -> list[dict]:
                     specs.append({**spec, "alias": alias})
                     break
         return specs
+
+    for prefix, provider_id in _DYNAMIC_PREFIXES.items():
+        if model_alias.startswith(prefix):
+            if provider_id == "openrouter" and not model_alias.endswith(":free"):
+                raise RouterModelNotFound(model_alias)
+            return [{
+                "provider": provider_id,
+                "model": model_alias.removeprefix(prefix),
+                "tier": "free",
+                "pts_per_1k": 0,
+                "description": "",
+                "context_window": 0,
+                "alias": model_alias,
+            }]
 
     if model_alias.startswith("novita/"):
         model_id = model_alias.removeprefix("novita/")
@@ -65,6 +86,10 @@ def route(request: ChatRequest, dev_id: int, api_key_id: int | None, db: Session
     Faz fallback automático em caso de 429 ou erro de provedor.
     """
     specs = _resolve_model(request.model)
+    if request.model != "auto":
+        # Se o modelo pedido falhar, o roteador tenta os outros provedores
+        tried = {spec["provider"] for spec in specs}
+        specs += [spec for spec in _resolve_model("auto") if spec["provider"] not in tried]
     last_error = None
 
     for spec in specs:

@@ -7,6 +7,8 @@ import { authHeaders } from "@/lib/auth";
 
 const API_ORIGIN = (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8001").replace(/\/+$/, "");
 const API_BASE = API_ORIGIN.endsWith("/api/upzlab") ? API_ORIGIN : `${API_ORIGIN}/api/upzlab`;
+// Endpoint embutido no código do SDK: sempre o domínio público, nunca localhost.
+const SDK_ENDPOINT = "https://upzlab.com/api/upzlab";
 
 type AppConfiguration = {
   id: number;
@@ -36,6 +38,31 @@ export default function SDKConfigurationPage({
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [pkgInput, setPkgInput] = useState("");
+  const [savingPkg, setSavingPkg] = useState(false);
+
+  const savePackageId = async () => {
+    if (!app) return;
+    setSavingPkg(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("packageId", pkgInput.trim());
+      const response = await fetch(`${API_BASE}/campaigns/app/${encodeURIComponent(id)}`, {
+        method: "PUT",
+        headers: authHeaders(),
+        body: form,
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(typeof result.detail === "string" ? result.detail : "Não foi possível salvar o Package ID.");
+      setApp({ ...app, package_id: pkgInput.trim() });
+      setNotice("Package ID salvo.");
+    } catch (saveError: unknown) {
+      setError(saveError instanceof Error ? saveError.message : "Falha ao salvar o Package ID.");
+    } finally {
+      setSavingPkg(false);
+    }
+  };
 
   useEffect(() => {
     let active = true;
@@ -67,7 +94,7 @@ export default function SDKConfigurationPage({
   const code = useMemo(() => {
     if (!app?.package_id) return "";
     const appId = JSON.stringify(app.package_id);
-    const apiBaseUrl = JSON.stringify(API_BASE);
+    const apiBaseUrl = JSON.stringify(SDK_ENDPOINT);
     const appNameComment = app.name.replace(/[\r\n\u2028\u2029]/g, " ");
     const appVersion = JSON.stringify(app.version || "");
 
@@ -128,7 +155,7 @@ export function useUpzLabCheckin() {
   useEffect(() => {
     const sdk = new UpzLabSDK({
       appId: ${appId},
-      apiUrl: ${JSON.stringify(API_BASE)},
+      apiUrl: ${JSON.stringify(SDK_ENDPOINT)},
       appVersion: ${appVersion},
       getAccessToken: () => authRepository.getAccessToken(),
       platform: "${platform === "react-native" ? "react-native" : "android"}",
@@ -206,7 +233,7 @@ export function useUpzLabCheckin() {
           Os dados do app vêm do cadastro existente. Escolha a tecnologia e baixe o SDK e o código de integração já preenchidos.
         </p>
         <p className="mt-2 text-xs text-slate-500">
-          Endpoint configurado para o código: <code className="font-mono text-slate-300">{API_BASE}</code>
+          Endpoint do código: <code className="font-mono text-slate-300">{SDK_ENDPOINT}</code>
         </p>
       </header>
 
@@ -275,7 +302,25 @@ export function useUpzLabCheckin() {
         {configurationSaved ? (
           <CodeSnippet code={code} label={platform === "kotlin" ? "UpzLabApplication.kt" : "useUpzLabCheckin.tsx"} />
         ) : (
-          <p className="text-sm text-slate-400">Este app não possui Package ID cadastrado. Atualize os dados do app antes de gerar a integração SDK.</p>
+          <div className="space-y-3">
+            <p className="text-sm text-slate-400">Este app ainda não tem Package ID. Informe o ID do app Android (o mesmo do Play Console) para gerar a integração.</p>
+            <div className="flex flex-wrap gap-2">
+              <input
+                value={pkgInput}
+                onChange={(event) => setPkgInput(event.target.value)}
+                placeholder="com.empresa.app"
+                className="w-full rounded-lg border border-slate-700 bg-[#0A0E1A] px-3 py-2.5 font-mono text-sm text-white sm:max-w-sm"
+              />
+              <button
+                type="button"
+                onClick={savePackageId}
+                disabled={savingPkg || !pkgInput.trim()}
+                className="rounded-lg bg-white px-4 py-2.5 text-xs font-semibold text-[#111315] disabled:opacity-50"
+              >
+                {savingPkg ? "Salvando..." : "Salvar Package ID"}
+              </button>
+            </div>
+          </div>
         )}
       </section>
 

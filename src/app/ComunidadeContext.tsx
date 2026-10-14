@@ -30,6 +30,7 @@ export interface DevPost {
   uxRating?: number;
   hasImage: boolean;
   imageUrl?: string;
+  isVideo?: boolean;
   status: "open" | "reviewed" | "approved";
   badgeAwarded?: string;
   pointsAwarded?: number;
@@ -37,6 +38,8 @@ export interface DevPost {
   likes: number;
   hasLiked?: boolean;
   authorUsername?: string;
+  authorAvatarUrl?: string | null;
+  authorIsStaff?: boolean;
   commentsCount?: number;
   lastComment?: { authorName: string, body: string };
   date: string;
@@ -174,6 +177,8 @@ export function ComunidadeProvider({ children }: { children: React.ReactNode }) 
     github_score?: number;
     github_connected?: boolean;
     github_avatar_url?: string;
+    username?: string;
+    is_staff?: boolean;
   }>({
     name: "",
     email: "",
@@ -334,12 +339,16 @@ export function ComunidadeProvider({ children }: { children: React.ReactNode }) 
       id: `post-${Date.now()}`,
       authorName: newPostData.authorName || devUser.name,
       authorRole: devUser.role,
+      authorUsername: devUser.username,
+      authorAvatarUrl: devUser.avatarUrl,
+      authorIsStaff: !!devUser.is_staff,
       authorAvatarBg: "from-emerald-500 to-emerald-700",
       status: "open",
       likes: 0,
       date: "Hoje",
       hasImage: !!imageFile,
       imageUrl: imageFile ? URL.createObjectURL(imageFile) : undefined,
+      isVideo: !!imageFile?.type.startsWith("video/"),
     };
     setPosts(prev => [tempPost, ...prev]);
 

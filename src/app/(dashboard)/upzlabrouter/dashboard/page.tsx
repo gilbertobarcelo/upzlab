@@ -40,7 +40,7 @@ export default function UpzLabRouterDashboardPage() {
   return (
     <main className="mx-auto w-full max-w-6xl min-w-0 space-y-7 pb-8 text-white">
       <header className="overflow-hidden rounded-3xl border border-white/15 bg-gradient-to-br from-[#1a1d21] via-[#1a1d21] to-[#1a1d21] p-6 sm:p-9">
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-slate-200/70">AI Infrastructure · Novita</p>
+        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-slate-200/70">AI Infrastructure</p>
         <div className="mt-3 flex flex-wrap items-end justify-between gap-5">
           <div className="max-w-2xl">
             <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">UpzLabRouter</h1>
@@ -67,9 +67,9 @@ export default function UpzLabRouterDashboardPage() {
 
       {setupMessage && (
         <div role="status" className="rounded-2xl border border-amber-300/15 bg-amber-300/[0.04] p-4">
-          <p className="text-sm font-medium text-amber-100">Catálogo Novita indisponível</p>
+          <p className="text-sm font-medium text-amber-100">Catálogo temporariamente indisponível</p>
           <p className="mt-1 text-xs leading-5 text-amber-100/65">{setupMessage}</p>
-          <p className="mt-1 text-xs leading-5 text-amber-100/65">O administrador precisa configurar <code className="text-amber-100">NOVITA_API_KEY</code> em <code className="text-amber-100">backend/novita.env</code> e reiniciar o backend.</p>
+          <p className="mt-1 text-xs leading-5 text-amber-100/65">Se o problema persistir, contate o administrador.</p>
         </div>
       )}
 

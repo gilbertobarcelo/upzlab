@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import styles from './ai-support.module.css';
+import { authHeaders } from '@/lib/auth';
 import { escapeHtml } from '../../../lib/markdown';
 
 interface Message {
@@ -19,6 +20,7 @@ export default function AISupportPage() {
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState('');
+  const [online, setOnline] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -29,11 +31,9 @@ export default function AISupportPage() {
     scrollToBottom();
   }, [messages, isTyping]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputValue.trim()) return;
-
-    const userMessage = inputValue.trim();
+  const sendMessage = async (text: string) => {
+    const userMessage = text.trim();
+    if (!userMessage || isTyping) return;
     setInputValue('');
     setError('');
     
@@ -47,6 +47,7 @@ export default function AISupportPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...authHeaders(),
         },
         credentials: 'include',
         body: JSON.stringify({ 
@@ -54,12 +55,15 @@ export default function AISupportPage() {
         })
       });
 
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error('Falha ao comunicar com o servidor');
+        setOnline(response.status !== 503 && response.status !== 500);
+        if (response.status === 401) throw new Error('Faça login na comunidade para usar o LabsAi.');
+        if (response.status === 429) throw new Error(typeof data.detail === 'string' ? data.detail : 'Limite diário atingido.');
+        throw new Error('O LabsAi está indisponível no momento. Tente novamente em instantes.');
       }
+      setOnline(true);
 
-      const data = await response.json();
-      
       setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
     } catch (err: any) {
       setError(err.message || 'Ocorreu um erro inesperado');
@@ -67,6 +71,18 @@ export default function AISupportPage() {
       setIsTyping(false);
     }
   };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    sendMessage(inputValue);
+  };
+
+  const suggestions = [
+    'Como ganho UpzPoints?',
+    'Como cadastro meu app?',
+    'Como convido testadores?',
+    'Como integro o SDK?',
+  ];
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -79,14 +95,15 @@ export default function AISupportPage() {
     <div className={styles.container}>
       <div className={styles.header}>
         <div className={styles.logo}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-          </svg>
-          <h2>LabsAi</h2>
+          <img src="/favicon.svg?v=5" alt="UpzLab" className={styles.logoIcon} />
+          <div className={styles.logoText}>
+            <h2>LabsAi</h2>
+            <p>Assistente da comunidade UpzLab</p>
+          </div>
         </div>
-        <div className={styles.status}>
+        <div className={`${styles.status} ${online ? "" : styles.statusOff}`}>
           <div className={styles.statusDot}></div>
-          <span>IA Online</span>
+          <span>{online ? "IA Online" : "IA Indisponível"}</span>
         </div>
       </div>
 
@@ -99,6 +116,7 @@ export default function AISupportPage() {
                 msg.role === 'user' ? styles.wrapperUser : styles.wrapperBot
               }`}
             >
+              {msg.role !== 'user' && <img src="/favicon.svg?v=5" alt="" className={styles.botAvatar} />}
               <div 
                 className={`${styles.message} ${
                   msg.role === 'user' ? styles.messageUser : 
@@ -114,8 +132,17 @@ export default function AISupportPage() {
             </div>
           ))}
           
+          {messages.length === 1 && !isTyping && (
+            <div className={styles.suggestions}>
+              {suggestions.map((q) => (
+                <button key={q} type="button" className={styles.suggestion} onClick={() => sendMessage(q)}>{q}</button>
+              ))}
+            </div>
+          )}
+
           {isTyping && (
             <div className={`${styles.messageWrapper} ${styles.wrapperBot}`}>
+              <img src="/favicon.svg?v=5" alt="" className={styles.botAvatar} />
               <div className={`${styles.message} ${styles.messageBot}`}>
                 <div className={styles.typingIndicator}>
                   <div className={styles.typingDot}></div>
@@ -159,6 +186,7 @@ export default function AISupportPage() {
             <span>Enviar</span>
           </button>
         </form>
+        <p className={styles.hint}>Enter envia · Shift+Enter quebra a linha</p>
       </div>
     </div>
   );

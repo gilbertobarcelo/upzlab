@@ -212,6 +212,7 @@ async def update_app(
     tiktokUrl: str = Form(None),
     facebookUrl: str = Form(None),
     instagramUrl: str = Form(None),
+    packageId: str = Form(None),
     iconeFile: UploadFile = File(None),
     capaFile: UploadFile = File(None),
     db: Session = Depends(get_db)
@@ -246,6 +247,17 @@ async def update_app(
     if instagramUrl is not None: camp.instagram_url = instagramUrl
 
     import re
+    if packageId and packageId.strip():
+        new_pkg = packageId.strip()
+        if camp.package_id and camp.package_id != new_pkg:
+            raise HTTPException(status_code=400, detail="O Package ID já cadastrado não pode ser alterado.")
+        if not camp.package_id:
+            if len(new_pkg) > 120 or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+", new_pkg):
+                raise HTTPException(status_code=400, detail="Package ID inválido. Use o formato com.empresa.app.")
+            if db.query(BetaProduct).filter(BetaProduct.package_id == new_pkg, BetaProduct.id != camp.id).first():
+                raise HTTPException(status_code=409, detail="Este Package ID já está em uso por outro app.")
+            camp.package_id = new_pkg
+
     safe_app_name = re.sub(r'[^a-zA-Z0-9_]', '_', camp.name.lower())
     app_folder = f"uploads/apps/imagens/{safe_app_name}"
 
@@ -422,6 +434,7 @@ async def get_app_details(slug: str, dev_id: int = None, db: Session = Depends(g
             "google_group": camp.google_group_url or "",
             "download_url": camp.download_url or "",
             "version": camp.version or "",
+            "package_id": camp.package_id or "",
             "tiktok_url": camp.tiktok_url or "",
             "facebook_url": camp.facebook_url or "",
             "instagram_url": camp.instagram_url or "",

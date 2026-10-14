@@ -15,6 +15,7 @@ export default function ConfiguracoesPage({ params }: { params: Promise<{ id: st
     name: "",
     description: "",
     version: "",
+    package_id: "",
     category: "",
     google_group: "",
     download_url: "",
@@ -33,6 +34,7 @@ export default function ConfiguracoesPage({ params }: { params: Promise<{ id: st
             name: d.name || "",
             description: d.description || "",
             version: d.version || "",
+            package_id: d.package_id || "",
             category: d.category || "",
             google_group: d.google_group || "",
             download_url: d.download_url || "",
@@ -57,6 +59,7 @@ export default function ConfiguracoesPage({ params }: { params: Promise<{ id: st
       form.append("descricaoApp", appData.description);
       form.append("versao", appData.version);
       form.append("categoria", appData.category);
+      if (appData.package_id) form.append("packageId", appData.package_id);
       form.append("grupoGoogle", appData.google_group);
       form.append("linkDownload", appData.download_url);
       form.append("tiktokUrl", appData.tiktok_url);
@@ -118,6 +121,14 @@ export default function ConfiguracoesPage({ params }: { params: Promise<{ id: st
                 type="text" required
                 className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 text-sm font-mono"
                 value={appData.version} onChange={e => setAppData({...appData, version: e.target.value})}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-300 uppercase tracking-wide">Package ID</label>
+              <input
+                type="text" placeholder="com.empresa.app"
+                className="w-full bg-slate-900/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500 text-sm font-mono"
+                value={appData.package_id} onChange={e => setAppData({...appData, package_id: e.target.value})}
               />
             </div>
           </div>

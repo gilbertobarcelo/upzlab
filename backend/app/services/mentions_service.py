@@ -5,17 +5,15 @@ from app.models.dev_tester_models import DevProfile, DevNotification
 def extract_mentions(text: str) -> list[str]:
     """
     Extrai todos os usernames mencionados num texto.
-    Padrões aceitos: @username ou u/username
+    Padrões aceitos: @username ou lab/username
     Regras para username: letras, números, _ e .
     """
     if not text:
         return []
         
-    # Regex to find com.username
-    # Allowed chars: a-z, A-Z, 0-9, _, .
-    pattern = r'com\.([a-zA-Z0-9_\.]+)'
-    matches = re.findall(pattern, text)
-    
+    pattern = r'(?:(?<![\w@])@|(?<![\w/])lab/)([a-zA-Z0-9_.]+)'
+    matches = [m.rstrip('.') for m in re.findall(pattern, text)]
+
     # Retorna usernames únicos em lowercase para busca
     return list(set(m.lower() for m in matches if m))
 

@@ -7,6 +7,7 @@ const routerNavigation = [
   { href: "/upzlabrouter/dashboard", label: "Painel", shortLabel: "Painel" },
   { href: "/upzlabrouter/models", label: "Modelos gratuitos", shortLabel: "Modelos" },
   { href: "/upzlabrouter/playground", label: "Playground", shortLabel: "Testar" },
+  { href: "/upzlabrouter/usage", label: "Uso da API", shortLabel: "Uso" },
   { href: "/upzlabrouter/api/keys", label: "Chaves de API", shortLabel: "Chaves" },
   { href: "/upzlabrouter/docs", label: "Integração", shortLabel: "Docs" },
 ];
@@ -43,17 +44,6 @@ export default function UpzLabRouterLayout({ children }: { children: React.React
               </Link>
             );
           })}
-          <div className="hidden border-t border-[#2a2e35] pt-3 xl:block">
-            <a
-              href="https://novita.ai/models-console/library"
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center justify-between rounded-xl px-3 py-2 text-xs text-slate-500 transition hover:bg-white/[0.04] hover:text-slate-200"
-            >
-              <span>Catálogo Novita</span>
-              <span aria-hidden="true">↗</span>
-            </a>
-          </div>
         </nav>
       </aside>
 

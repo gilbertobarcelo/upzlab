@@ -89,7 +89,7 @@ export default function ComunidadeCadastroPage() {
     <main className="mx-auto grid min-h-[calc(100vh-5rem)] w-full max-w-6xl items-center gap-12 px-5 py-12 lg:grid-cols-[1fr_0.8fr] lg:px-8">
       <section className="hidden max-w-xl lg:block">
         <Link href="/" className="mb-16 inline-flex items-center gap-3 text-sm font-semibold tracking-wide text-white/75">
-          <img src="/favicon.svg" alt="" className="h-9 w-9 object-contain" />
+          <img src="/favicon.svg?v=5" alt="" className="h-9 w-9 object-contain" />
           UPZLAB <span className="font-mono text-xs font-normal text-white/35">/ COMMUNITY</span>
         </Link>
         <p className="mb-5 font-mono text-xs uppercase tracking-[0.2em] text-white/50">Developer network</p>
@@ -110,7 +110,7 @@ export default function ComunidadeCadastroPage() {
       <section className="mx-auto w-full max-w-md">
         <div className="mb-8 text-center lg:hidden">
           <Link href="/" className="inline-flex items-center gap-2">
-            <img src="/favicon.svg" alt="" className="h-8 w-8 object-contain" />
+            <img src="/favicon.svg?v=5" alt="" className="h-8 w-8 object-contain" />
             <span className="font-mono text-sm font-semibold tracking-widest text-white/80">UPZLAB</span>
           </Link>
         </div>

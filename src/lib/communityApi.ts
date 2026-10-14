@@ -20,7 +20,7 @@ export async function api<T = any>(path: string, init: RequestInit = {}): Promis
 }
 
 export function avatarSrc(url?: string | null) {
-  if (!url) return "";
+  if (!url || url.includes("ui-avatars.com")) return "";
   return url.startsWith("/uploads") ? `${API_BASE}${url}` : url;
 }
 

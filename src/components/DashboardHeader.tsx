@@ -16,7 +16,7 @@ export default function DashboardHeader() {
 
   const navItems = [
     {
-      href: "/",
+      href: "/comunidade",
       label: "Feed",
       shortLabel: "Feed",
       icon: (
@@ -90,10 +90,11 @@ export default function DashboardHeader() {
   ];
 
   return (
+  <>
   <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-[#0F172A]/90 backdrop-blur-md pt-safe-top pt-6 md:pt-0 shadow-lg">
     <div className="w-full max-w-[1920px] mx-auto px-4 md:px-8 h-12 flex items-center justify-between">
       <div className="flex items-center gap-8">
-        <Link href="/" className="flex items-center gap-2 text-decoration-none shrink-0">
+        <Link href="/comunidade" className="flex items-center gap-2 text-decoration-none shrink-0">
           <img src="/upzlab-wordmark-v6.svg" alt="UpzLab" title="UpzLab" className="h-7 w-auto" />
         </Link>
       </div>
@@ -189,11 +190,14 @@ export default function DashboardHeader() {
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
                 className="flex items-center justify-center w-8 h-8 rounded-full overflow-hidden bg-emerald-600 hover:bg-emerald-500 transition-colors shadow-sm"
               >
-                {avatarSrc ? (
-              <img src={avatarSrc} alt={devUser?.name || "Perfil"} className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-xs font-bold text-white">{(devUser?.name || "?").charAt(0).toUpperCase()}</span>
-            )}
+                <img
+                  src={avatarSrc || "/favicon.svg?v=5"}
+                  alt={devUser?.name || "Perfil"}
+                  className="w-full h-full object-cover bg-[#0d0d0d]"
+                  onError={(e) => {
+                    if (!e.currentTarget.src.endsWith("/favicon.svg?v=5")) e.currentTarget.src = "/favicon.svg?v=5";
+                  }}
+                />
               </button>
 
               {isProfileOpen && (
@@ -220,5 +224,29 @@ export default function DashboardHeader() {
       </div>
     </div>
   </header>
+
+  <nav aria-label="Navegação principal" className="lg:hidden fixed bottom-0 inset-x-0 z-50 bg-[#0F172A] border-t border-slate-800 pb-[env(safe-area-inset-bottom)]">
+    <div className="flex h-14">
+      {navItems.map((item) => {
+        const isActive = pathname === item.href || (item.href !== "/comunidade" && pathname.startsWith(item.href));
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 relative ${isActive ? "text-emerald-400" : "text-slate-400"}`}
+          >
+            {!!item.badgeCount && item.badgeCount > 0 && (
+              <span className="absolute top-1.5 right-[calc(50%-18px)] min-w-[14px] h-[14px] px-1 rounded-full text-[8px] font-bold bg-rose-500 text-white flex items-center justify-center">
+                {item.badgeCount}
+              </span>
+            )}
+            {item.icon}
+            <span className="text-[9px] font-mono font-bold truncate max-w-full px-0.5">{item.shortLabel}</span>
+          </Link>
+        );
+      })}
+    </div>
+  </nav>
+  </>
   );
 }

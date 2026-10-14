@@ -161,7 +161,7 @@ export default async function UpzLabRouterPublicPage() {
           <section id="modelos" className="scroll-mt-20 space-y-4">
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div>
-                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/35">Catálogo Novita</p>
+                <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/35">Catálogo gratuito</p>
                 <h2 className="mt-2 text-2xl font-semibold tracking-tight">Modelos gratuitos disponíveis</h2>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-white/50">
                   A lista mostra somente modelos confirmados com preço zero tanto na entrada quanto na saída.
@@ -248,9 +248,8 @@ export default async function UpzLabRouterPublicPage() {
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-white/35">Custos e disponibilidade</p>
             <h2 className="mt-2 text-xl font-semibold">Sem modelos pagos nesta etapa</h2>
             <p className="mt-3 text-sm leading-6 text-white/50">
-              O Router só lista e executa modelos confirmados como gratuitos na Novita. Não há cobrança em UpzPoints.
-              Modelos pagos permanecem bloqueados até existir um sistema de pagamento, e integrações próprias de áudio
-              e vídeo ainda serão adicionadas.
+              O Router só lista e executa modelos confirmados como gratuitos. Não há cobrança em UpzPoints.
+              Modelos pagos permanecem bloqueados até existir um sistema de pagamento.
             </p>
           </section>
           </main>

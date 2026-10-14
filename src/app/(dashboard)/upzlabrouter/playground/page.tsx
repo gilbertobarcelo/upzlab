@@ -92,7 +92,7 @@ export default function UpzLabRouterPlaygroundPage() {
       if (!response.ok) throw new Error(await responseError(response));
       const result = (await response.json()) as ChatResponse;
       const answer = result.choices?.[0]?.message?.content;
-      if (typeof answer !== "string") throw new Error("A Novita retornou uma resposta sem texto.");
+      if (typeof answer !== "string") throw new Error("O modelo retornou uma resposta sem texto.");
       setMessages([...nextMessages, { role: "assistant", content: answer }]);
       setTotalTokens(result.usage?.total_tokens ?? null);
     } catch (sendError) {
@@ -135,7 +135,7 @@ export default function UpzLabRouterPlaygroundPage() {
                 <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-xl text-slate-300" aria-hidden="true">✳</span>
                 <h2 className="mt-4 text-base font-semibold text-slate-100">Teste seu primeiro prompt</h2>
                 <p className="mt-2 max-w-sm text-xs leading-5 text-slate-500">
-                  As chamadas do playground são limitadas aos modelos confirmados como gratuitos pela Novita.
+                  As chamadas do playground são limitadas aos modelos confirmados como gratuitos.
                 </p>
               </div>
             ) : (
@@ -202,7 +202,7 @@ export default function UpzLabRouterPlaygroundPage() {
               {models.map((model) => <option key={model.id} value={model.id}>{model.name} · {model.category}</option>)}
             </select>
             {!isLoadingModels && models.length === 0 && (
-              <p className="mt-2 text-[10px] leading-4 text-slate-500">Verifique se o catálogo Novita está configurado e se há modelos gratuitos disponíveis.</p>
+              <p className="mt-2 text-[10px] leading-4 text-slate-500">Verifique se há modelos gratuitos disponíveis no catálogo.</p>
             )}
           </section>
 
