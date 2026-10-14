@@ -69,7 +69,7 @@ function CommunityMembers() {
   const [members, setMembers] = useState<CommunityMember[]>([]);
 
   useEffect(() => {
-    fetch("http://localhost:8001/api/upzlab/dev/members?limit=5")
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001"}/api/upzlab/dev/members?limit=5`)
       .then((r) => r.json())
       .then((d) => {
         if (d?.success) {
